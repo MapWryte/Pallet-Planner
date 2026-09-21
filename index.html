@@ -1,0 +1,1936 @@
+<title>Pallet Layer Planner</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@700;800;900&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #f5f3ee;
+    --surface: #ffffff;
+    --surface-2: #eee9dd;
+    --surface-3: #e4ddc9;
+    --ink: #211d15;
+    --ink-dim: #6c6454;
+    --line: #d9d0ba;
+    --line-strong: #c1b697;
+    --accent: #c2531a;
+    --accent-ink: #fffaf3;
+    --accent-soft: #c2531a26;
+    --good: #3d7a4e;
+    --good-soft: #3d7a4e1f;
+    --warn: #a97418;
+    --warn-soft: #a974181f;
+    --bad: #b23a2e;
+    --bad-soft: #b23a2e1f;
+    --radius-s: 4px;
+    --radius-m: 8px;
+    --font-display: "Archivo", "Arial Black", sans-serif;
+    --font-ui: "IBM Plex Sans", system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", "SFMono-Regular", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #17140e;
+      --surface: #201c14;
+      --surface-2: #2a2419;
+      --surface-3: #362f1f;
+      --ink: #efe8d8;
+      --ink-dim: #a89b80;
+      --line: #3c3423;
+      --line-strong: #4d4329;
+      --accent: #e07a3c;
+      --accent-ink: #1a1206;
+      --accent-soft: #e07a3c2b;
+      --good: #6fbf83;
+      --good-soft: #6fbf8322;
+      --warn: #e0b04a;
+      --warn-soft: #e0b04a22;
+      --bad: #e2695b;
+      --bad-soft: #e2695b24;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #17140e;
+    --surface: #201c14;
+    --surface-2: #2a2419;
+    --surface-3: #362f1f;
+    --ink: #efe8d8;
+    --ink-dim: #a89b80;
+    --line: #3c3423;
+    --line-strong: #4d4329;
+    --accent: #e07a3c;
+    --accent-ink: #1a1206;
+    --accent-soft: #e07a3c2b;
+    --good: #6fbf83;
+    --good-soft: #6fbf8322;
+    --warn: #e0b04a;
+    --warn-soft: #e0b04a22;
+    --bad: #e2695b;
+    --bad-soft: #e2695b24;
+  }
+
+  * { box-sizing: border-box; }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    padding-inline: 20px;
+    padding-block: 20px;
+  }
+
+  .wrap { max-width: 1240px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+
+  /* ---------- Header ---------- */
+  .hdr {
+    display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; flex-wrap: wrap;
+    border-bottom: 3px solid var(--ink);
+    padding-bottom: 14px;
+  }
+  .hdr-title { display: flex; flex-direction: column; gap: 2px; }
+  .hdr-title .stamp {
+    font-family: var(--font-display); font-weight: 900; font-size: 1.9rem; letter-spacing: 0.01em;
+    text-transform: uppercase; line-height: 1;
+  }
+  .hdr-title .sub { font-size: 0.8rem; color: var(--ink-dim); }
+  .pallet-cfg { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; }
+  .field { display: flex; flex-direction: column; gap: 3px; }
+  .field label {
+    font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-dim); font-weight: 600;
+  }
+  .field input, .field select {
+    font-family: var(--font-mono); font-size: 0.92rem; color: var(--ink);
+    background: var(--surface); border: 1.5px solid var(--line-strong); border-radius: var(--radius-s);
+    padding: 6px 8px; width: 92px; font-variant-numeric: tabular-nums;
+  }
+  .field select { width: auto; font-family: var(--font-ui); }
+  input:focus-visible, select:focus-visible, button:focus-visible, [tabindex]:focus-visible {
+    outline: 2.5px solid var(--accent); outline-offset: 1px;
+  }
+
+  /* ---------- Layout ---------- */
+  .grid { display: grid; grid-template-columns: 296px 1fr; gap: 16px; align-items: start; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-m);
+    padding: 14px;
+  }
+  .panel-title {
+    font-family: var(--font-display); font-weight: 800; font-size: 0.78rem; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--ink-dim); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;
+    flex-wrap: wrap; gap: 8px;
+  }
+
+  /* ---------- Sidebar: layer list ---------- */
+  .side { display: flex; flex-direction: column; gap: 14px; }
+  .layer-list { display: flex; flex-direction: column; gap: 6px; }
+  .layer-row {
+    display: flex; align-items: center; gap: 8px; padding: 8px 9px; border-radius: var(--radius-s);
+    border: 1.5px solid var(--line); background: var(--surface); cursor: pointer; text-align: left; width: 100%;
+    font-family: var(--font-ui); color: var(--ink);
+  }
+  .layer-row:hover { border-color: var(--line-strong); }
+  .layer-row.active { border-color: var(--accent); background: var(--accent-soft); }
+  .layer-row .sw { width: 9px; height: 9px; border-radius: 2px; background: var(--accent); flex: none; }
+  .layer-row .sw.bad { background: var(--bad); }
+  .layer-row .meta { flex: 1; min-width: 0; }
+  .layer-row .nm { font-weight: 600; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .layer-row .sub { font-size: 0.68rem; color: var(--ink-dim); font-family: var(--font-mono); }
+  .layer-row .cnt { font-family: var(--font-mono); font-weight: 500; font-size: 0.82rem; flex: none; }
+
+  .btnrow { display: flex; gap: 6px; flex-wrap: wrap; }
+  button.mini {
+    font-family: var(--font-ui); font-size: 0.72rem; font-weight: 600; padding: 6px 10px;
+    border-radius: var(--radius-s); border: 1.5px solid var(--line-strong); background: var(--surface-2); color: var(--ink);
+    cursor: pointer;
+  }
+  button.mini:hover { background: var(--surface-3); }
+  button.mini.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  button.mini.primary:hover { filter: brightness(1.06); }
+  button.mini:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ---------- Editor form ---------- */
+  .form-grid { display: flex; flex-direction: column; gap: 10px; }
+  .form-row { display: flex; flex-direction: column; gap: 3px; }
+  .form-row label { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-dim); font-weight: 600; }
+  .form-row input, .form-row select {
+    font-family: var(--font-mono); font-size: 0.88rem; color: var(--ink); background: var(--surface-2);
+    border: 1.5px solid var(--line-strong); border-radius: var(--radius-s); padding: 7px 8px; width: 100%;
+  }
+  .form-row select { font-family: var(--font-ui); }
+  .form-row input:focus, .form-row select:focus { border-color: var(--accent); }
+  .dims-triplet { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; align-items: end; }
+  .dim-field { display: flex; flex-direction: column; gap: 3px; }
+  .dim-field label { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-dim); font-weight: 600; }
+  .dim-field input {
+    font-family: var(--font-mono); font-size: 0.88rem; color: var(--ink); background: var(--surface-2);
+    border: 1.5px solid var(--line-strong); border-radius: var(--radius-s); padding: 7px 8px; width: 100%;
+  }
+  .dim-field input:focus { border-color: var(--accent); }
+  .section-title {
+    font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-dim); font-weight: 600;
+  }
+  .editor-tabs { display: flex; gap: 4px; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius-s); padding: 3px; margin-bottom: 12px; }
+  .editor-tabs button {
+    flex: 1; font-family: var(--font-ui); font-weight: 600; font-size: 0.78rem; padding: 7px 10px; border-radius: 3px;
+    border: none; background: transparent; color: var(--ink-dim); cursor: pointer;
+  }
+  .editor-tabs button.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px #0002; }
+  .type-toggle { display: flex; gap: 6px; }
+  .type-toggle button {
+    flex: 1; font-family: var(--font-ui); font-weight: 600; font-size: 0.78rem; padding: 7px;
+    border-radius: var(--radius-s); border: 1.5px solid var(--line-strong); background: var(--surface-2); color: var(--ink); cursor: pointer;
+  }
+  .type-toggle button.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .align-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; width: 108px; }
+  .align-grid button {
+    aspect-ratio: 1; border-radius: var(--radius-s); border: 1.5px solid var(--line-strong);
+    background: var(--surface-2); cursor: pointer; position: relative; padding: 0;
+  }
+  .align-grid button::after {
+    content: ""; position: absolute; inset: 30%; border-radius: 1px; background: var(--line-strong);
+  }
+  .align-grid button:hover { border-color: var(--accent); }
+  .align-grid button.on { background: var(--accent); border-color: var(--accent); }
+  .align-grid button.on::after { background: var(--accent-ink); }
+  .hint { font-size: 0.7rem; color: var(--ink-dim); line-height: 1.45; margin: 0; }
+
+  .note-box {
+    font-size: 0.72rem; color: var(--ink-dim); line-height: 1.45; border-top: 1px dashed var(--line-strong);
+    padding-top: 10px; margin-top: 2px;
+  }
+  .note-box b { color: var(--ink); }
+
+  .solve-box { border-top: 1px dashed var(--line-strong); margin-top: 4px; padding-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .solve-title { font-family: var(--font-display); font-weight: 800; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-dim); }
+  #solveResult { min-height: 1.2em; }
+  #solveResult b { color: var(--accent); }
+
+  /* ---------- Stack bar ---------- */
+  .stack-panel { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+  .stack-bar-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: none; }
+  .stack-bar {
+    position: relative; width: 64px; height: 220px; background: var(--surface-2); border: 1.5px solid var(--line-strong);
+    border-radius: var(--radius-s); display: flex; flex-direction: column-reverse; overflow: hidden;
+  }
+  .stack-seg {
+    border-top: 1.5px solid var(--surface); cursor: pointer; display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-mono); font-size: 0.62rem; color: var(--accent-ink); min-height: 6px; position: relative;
+  }
+  .stack-seg:hover::after {
+    content: attr(data-tip); position: absolute; left: 72px; top: 50%; transform: translateY(-50%);
+    background: var(--ink); color: var(--bg); font-family: var(--font-ui); font-size: 0.7rem; padding: 5px 8px;
+    border-radius: var(--radius-s); white-space: nowrap; z-index: 5;
+  }
+  .max-line {
+    position: absolute; left: -2px; right: -2px; border-top: 2px dashed var(--bad); pointer-events: none;
+  }
+  .max-line span {
+    position: absolute; right: 2px; top: -16px; font-family: var(--font-mono); font-size: 0.6rem; color: var(--bad);
+    background: var(--surface); padding: 0 2px;
+  }
+  .stack-caption { font-size: 0.66rem; color: var(--ink-dim); text-align: center; font-family: var(--font-mono); }
+  .stack-stats { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 220px; }
+  .stat-line { display: flex; justify-content: space-between; font-size: 0.8rem; padding: 6px 0; border-bottom: 1px solid var(--line); }
+  .stat-line .k { color: var(--ink-dim); }
+  .stat-line .v { font-family: var(--font-mono); font-weight: 500; }
+  .stat-line .v.bad { color: var(--bad); }
+  .stat-line .v.good { color: var(--good); }
+
+  /* ---------- View tabs ---------- */
+  .view-tabs { display: flex; gap: 4px; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius-s); padding: 3px; width: fit-content; }
+  .view-tabs button {
+    font-family: var(--font-ui); font-weight: 600; font-size: 0.78rem; padding: 6px 13px; border-radius: 3px;
+    border: none; background: transparent; color: var(--ink-dim); cursor: pointer;
+  }
+  .view-tabs button.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px #0002; }
+
+  /* ---------- Canvas / diagrams ---------- */
+  .canvas-single { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+  .canvas-single svg { width: 100%; max-width: 620px; height: auto; }
+  .badge-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .badge {
+    font-family: var(--font-mono); font-size: 0.74rem; font-weight: 500; padding: 4px 10px; border-radius: 20px;
+    background: var(--surface-2); border: 1px solid var(--line-strong); display: flex; gap: 5px; align-items: center;
+  }
+  .badge.good { background: var(--good-soft); color: var(--good); border-color: transparent; }
+  .badge.warn { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+  .badge.bad { background: var(--bad-soft); color: var(--bad); border-color: transparent; }
+
+  .small-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
+  .small-card {
+    border: 1.5px solid var(--line); border-radius: var(--radius-s); padding: 8px; cursor: pointer; background: var(--surface);
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .small-card:hover { border-color: var(--accent); }
+  .small-card svg { width: 100%; height: auto; }
+  .small-card .nm { font-weight: 600; font-size: 0.78rem; }
+  .small-card .info { font-size: 0.68rem; color: var(--ink-dim); font-family: var(--font-mono); }
+  .small-card .tag {
+    align-self: flex-start; font-family: var(--font-mono); font-size: 0.62rem; background: var(--surface-3);
+    padding: 1px 6px; border-radius: 3px; color: var(--ink-dim);
+  }
+
+  /* ---------- Magic numbers ---------- */
+  .magic-controls { display: flex; gap: 14px; align-items: flex-end; margin-bottom: 10px; flex-wrap: wrap; }
+  .radio-row { display: flex; gap: 4px; }
+  .radio-row button {
+    font-family: var(--font-ui); font-size: 0.72rem; font-weight: 600; padding: 5px 10px; border-radius: var(--radius-s);
+    border: 1.5px solid var(--line-strong); background: var(--surface-2); color: var(--ink); cursor: pointer;
+  }
+  .radio-row button.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .inline-num {
+    width: 78px; font-family: var(--font-mono); font-size: 0.82rem; padding: 6px 8px; border-radius: var(--radius-s);
+    border: 1.5px solid var(--line-strong); background: var(--surface-2); color: var(--ink);
+  }
+  .chart-wrap svg { width: 100%; height: auto; }
+  table.brk { width: 100%; border-collapse: collapse; font-size: 0.76rem; margin-top: 8px; }
+  table.brk th { text-align: left; font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-dim); padding: 5px 6px; border-bottom: 1.5px solid var(--line-strong); }
+  table.brk td { padding: 5px 6px; border-bottom: 1px solid var(--line); font-family: var(--font-mono); }
+  table.brk tr.cliff td:first-child { color: var(--warn); font-weight: 600; }
+  table.brk tr.current { background: var(--accent-soft); }
+  .table-scroll { overflow-x: auto; }
+
+  .empty { padding: 30px; text-align: center; color: var(--ink-dim); font-size: 0.85rem; }
+</style>
+
+<div class="wrap">
+
+  <header class="hdr">
+    <div class="hdr-title">
+      <div class="stamp">Pallet Layer Planner</div>
+      <div class="sub">Rectangle &amp; circle packing for boxes and rolls, layer by layer</div>
+    </div>
+    <div class="pallet-cfg">
+      <div class="field">
+        <label for="palletLength">Length (in)</label>
+        <input type="text" inputmode="decimal" id="palletLength">
+      </div>
+      <div class="field">
+        <label for="palletWidth">Width (in)</label>
+        <input type="text" inputmode="decimal" id="palletWidth">
+      </div>
+      <div class="field">
+        <label for="palletMaxH">Max height (in)</label>
+        <input type="text" inputmode="decimal" id="palletMaxH">
+      </div>
+    </div>
+  </header>
+
+  <div class="grid">
+    <!-- SIDEBAR -->
+    <div class="side">
+      <div class="panel">
+        <div class="panel-title">
+          <span>Layers</span>
+        </div>
+        <div class="btnrow">
+          <button class="mini primary" id="btnAddLayer">+ Add layer</button>
+          <button class="mini" id="btnDupLayer">Duplicate</button>
+          <button class="mini" id="btnDelLayer">Delete</button>
+        </div>
+        <div class="btnrow" style="margin-top:6px; margin-bottom:12px;">
+          <button class="mini" id="btnMoveUp">↑ Move up</button>
+          <button class="mini" id="btnMoveDown">↓ Move down</button>
+        </div>
+        <p class="hint" style="margin-bottom:6px;">Top of pallet first</p>
+        <div class="layer-list" id="layerList"></div>
+      </div>
+
+      <div class="panel" id="editorPanel"></div>
+    </div>
+
+    <!-- MAIN -->
+    <div style="display:flex; flex-direction:column; gap:16px;">
+      <div class="panel">
+        <div class="panel-title"><span>Vertical stack</span></div>
+        <div class="stack-panel">
+          <div class="stack-bar-wrap">
+            <div class="stack-bar" id="stackBar"></div>
+            <div class="stack-caption">height, in</div>
+          </div>
+          <div class="stack-stats" id="stackStats"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">
+          <span>Layer views</span>
+          <div class="view-tabs" id="viewTabs">
+            <button data-view="single" class="on">Single layer</button>
+            <button data-view="all">All layers</button>
+            <button data-view="unique">Unique layers</button>
+          </div>
+        </div>
+        <div id="viewBody"></div>
+      </div>
+
+      <div class="panel magic-panel" id="magicPanel"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------------------------------------------------------------
+  // State
+  // ---------------------------------------------------------------
+  const state = {
+    pallet: { length: 48, width: 40, maxHeight: 60 },
+    layers: [
+      {
+        id: "L1", name: "Roll layer — A",
+        productType: "roll",
+        dims: { diameter: 6, padding: 0.25, padX: 0.5, padY: 0.25, height: 8 },
+        packing: "grid"
+      },
+      {
+        id: "L2", name: "Case layer — B",
+        productType: "box",
+        dims: { length: 16, width: 12, height: 10 },
+        packing: "tiling",
+        align: { x: "center", y: "center" }
+      }
+    ],
+    selectedId: "L1",
+    view: "single",
+    sweepDim: "length",   // for boxes: 'length' | 'width'
+    solveDim: "length",   // for boxes: which dim the solver targets
+    magicMode: "auto",    // 'auto' or a number (± range in inches)
+    editorTab: "product"  // 'product' | 'boards' — which Layer settings tab is showing
+  };
+  let uidCounter = 3;
+  const newId = () => "L" + (uidCounter++);
+
+  // ---------------------------------------------------------------
+  // Packing math
+  // ---------------------------------------------------------------
+  const EPS = 1e-9;
+
+  function packBoxGridSimple(L, W, il, iw) {
+    const cols = Math.floor((L + EPS) / il);
+    const rows = Math.floor((W + EPS) / iw);
+    const rects = [];
+    for (let r = 0; r < rows; r++)
+      for (let c = 0; c < cols; c++)
+        rects.push({ x: c * il, y: r * iw, w: il, h: iw });
+    return { count: cols * rows, rects };
+  }
+
+  function packBoxGrid(L, W, bl, bw) {
+    const a = packBoxGridSimple(L, W, bl, bw);
+    const b = packBoxGridSimple(L, W, bw, bl);
+    return a.count >= b.count ? a : b;
+  }
+
+  function packBoxHybrid(L, W, il, iw, jl, jw) {
+    const rows = Math.floor((W + EPS) / iw);
+    const usedH = rows * iw;
+    const leftoverH = W - usedH;
+    const cols = Math.floor((L + EPS) / il);
+    const rects = [];
+    for (let r = 0; r < rows; r++)
+      for (let c = 0; c < cols; c++)
+        rects.push({ x: c * il, y: r * iw, w: il, h: iw });
+    let count = rows * cols;
+    if (jw <= leftoverH + EPS) {
+      const cols2 = Math.floor((L + EPS) / jl);
+      for (let c = 0; c < cols2; c++)
+        rects.push({ x: c * jl, y: usedH, w: jl, h: jw });
+      count += cols2;
+    }
+    return { count, rects };
+  }
+
+  function transposeRects(rects) {
+    return rects.map(r => ({ x: r.y, y: r.x, w: r.h, h: r.w }));
+  }
+
+  // Heuristic auto-tiling: tries pure grids + row/column hybrids with the
+  // leftover strip filled by the rotated orientation, in both axis
+  // directions, and keeps the best count found. Not an exhaustive search —
+  // true optimal irregular packing is NP-hard — but it generalizes the
+  // "fill the leftover strip with the other orientation" idea directly.
+  function packBoxAuto(L, W, bl, bw) {
+    const opts = [];
+    opts.push(packBoxHybrid(L, W, bl, bw, bw, bl));
+    opts.push(packBoxHybrid(L, W, bw, bl, bl, bw));
+    {
+      const t = packBoxHybrid(W, L, bl, bw, bw, bl);
+      opts.push({ count: t.count, rects: transposeRects(t.rects) });
+    }
+    {
+      const t = packBoxHybrid(W, L, bw, bl, bl, bw);
+      opts.push({ count: t.count, rects: transposeRects(t.rects) });
+    }
+    opts.push(packBoxGridSimple(L, W, bl, bw));
+    opts.push(packBoxGridSimple(L, W, bw, bl));
+    opts.sort((a, b) => b.count - a.count);
+    return opts[0];
+  }
+
+  // pitchX/pitchY default to d (a tight, ungapped grid). Passing a larger
+  // pitch is how linear (interior-only) padding between rolls is modeled:
+  // the first roll's center still sits at d/2 from the boundary — only the
+  // spacing between rolls grows, so the outer edge gets no extra margin.
+  function packCircleGrid(L, W, d, pitchX, pitchY) {
+    pitchX = pitchX || d;
+    pitchY = pitchY || d;
+    const cols = L >= d - EPS ? Math.floor((L - d + EPS) / pitchX) + 1 : 0;
+    const rows = W >= d - EPS ? Math.floor((W - d + EPS) / pitchY) + 1 : 0;
+    const circles = [];
+    for (let r = 0; r < rows; r++)
+      for (let c = 0; c < cols; c++)
+        circles.push({ cx: d / 2 + c * pitchX, cy: d / 2 + r * pitchY, r: d / 2 });
+    return { count: cols * rows, circles };
+  }
+
+  function packCircleHex(L, W, d) {
+    const circles = [];
+    if (L < d - EPS || W < d - EPS) return { count: 0, circles };
+    const dy = d * Math.sqrt(3) / 2;
+    const rows = Math.floor((W - d) / dy + EPS) + 1;
+    for (let i = 0; i < rows; i++) {
+      const offset = (i % 2 === 1) ? d / 2 : 0;
+      const avail = L - d - offset;
+      if (avail < -EPS) continue;
+      const cols = Math.floor(avail / d + EPS) + 1;
+      for (let c = 0; c < cols; c++)
+        circles.push({ cx: d / 2 + offset + c * d, cy: d / 2 + i * dy, r: d / 2 });
+    }
+    return { count: circles.length, circles };
+  }
+
+  // A circle can sit closer to a rounded corner than a flat rectangular
+  // inset allows — it can hug the curve, tangent to the arc, rather than
+  // being held back from it in a straight line. So rolls are packed on the
+  // FULL rectangle (no blanket inset) and each grid/hex circle that ends up
+  // in a corner zone is checked against the real arc geometry: valid as
+  // long as its center is within (R − itemRadius) of the arc's own center.
+  // One that isn't gets pulled inward along that same corner's diagonal
+  // until it's exactly tangent to the arc — the physical "hugging" position
+  // — unless that would overlap a neighboring roll, in which case it's
+  // dropped rather than drawn overlapping.
+  function applyCornerFillet(circles, L, W, R, rItem) {
+    if (R <= 1e-9) return circles;
+    const maxDist = R - rItem;
+    const corners = [
+      { near: c => c.cx < R && c.cy < R, ax: R, ay: R },
+      { near: c => c.cx > L - R && c.cy < R, ax: L - R, ay: R },
+      { near: c => c.cx < R && c.cy > W - R, ax: R, ay: W - R },
+      { near: c => c.cx > L - R && c.cy > W - R, ax: L - R, ay: W - R }
+    ];
+    const kept = [];
+    for (const c of circles) {
+      const corner = corners.find(k => k.near(c));
+      if (!corner) { kept.push(c); continue; }
+      if (maxDist < -1e-9) continue; // item is bigger than the fillet itself — no position clears it
+      let dx = c.cx - corner.ax, dy = c.cy - corner.ay;
+      let dist = Math.hypot(dx, dy);
+      if (dist <= maxDist + 1e-9) { kept.push(c); continue; } // already clears the arc
+      if (dist < 1e-9) { dx = c.cx < corner.ax ? -1 : 1; dy = c.cy < corner.ay ? -1 : 1; dist = Math.SQRT2; }
+      const scale = Math.max(maxDist, 0) / dist;
+      const nc = { ...c, cx: corner.ax + dx * scale, cy: corner.ay + dy * scale };
+      const overlaps = circles.some(o => o !== c && Math.hypot(o.cx - nc.cx, o.cy - nc.cy) < rItem * 2 - 1e-6);
+      if (!overlaps) kept.push(nc); // else: nudging would overlap a neighbor — drop it instead
+    }
+    return kept;
+  }
+
+  // productType/dims/packing -> { count, rects|circles, itemArea }
+  // Roll packing uses the EFFECTIVE diameter (physical + padding) for
+  // spacing; rendering separately tracks the physical radius so the
+  // padding shows as a dashed clearance ring around the solid roll.
+  // `bounds` is the usable footprint rect {x0,y0,x1,y1,corner} for THIS
+  // layer — shrunk by its own baseboard and/or the cap of the layer below
+  // it, with `corner` the effective fillet radius at its four corners (see
+  // layerBounds). Packing itself still runs from a local (0,0) origin;
+  // positionedComputed shifts the result into bounds/pallet-absolute space.
+  function computeLayer(layer, bounds) {
+    const R = bounds.corner || 0;
+    if (layer.productType === "box") {
+      // A box's own square corner just needs to clear the arc, which is a
+      // flat, tight rectangular inset (see boxCornerInset) — simpler than
+      // the roll case since a box can't curve to hug it.
+      const packRect = boxCornerInset(bounds, R);
+      const L = Math.max(0, packRect.x1 - packRect.x0), W = Math.max(0, packRect.y1 - packRect.y0);
+      const { length: bl, width: bw } = layer.dims;
+      const res = layer.packing === "tiling" ? packBoxAuto(L, W, bl, bw) : packBoxGrid(L, W, bl, bw);
+      // Re-anchor from packRect's local origin back to bounds' — downstream
+      // code (alignOffset, positionedComputed) treats coordinates as
+      // relative to the raw `bounds` origin, same as the roll branch below.
+      const fx = packRect.x0 - bounds.x0, fy = packRect.y0 - bounds.y0;
+      const rects = res.rects.map(r => ({ ...r, x: r.x + fx, y: r.y + fy }));
+      return { count: res.count, rects, circles: null, itemArea: bl * bw };
+    } else {
+      const L = Math.max(0, bounds.x1 - bounds.x0), W = Math.max(0, bounds.y1 - bounds.y0);
+      const dPhys = layer.dims.diameter;
+      const pad = layer.dims.padding || 0;
+      const dEff = dPhys + pad;
+      let res;
+      if (layer.packing === "close") {
+        res = packCircleHex(L, W, dEff);
+      } else {
+        // Linear (x/y) padding only applies to the rectangular array —
+        // it widens row/column pitch without adding an outer-edge margin.
+        const pitchX = dEff + (layer.dims.padX || 0);
+        const pitchY = dEff + (layer.dims.padY || 0);
+        res = packCircleGrid(L, W, dEff, pitchX, pitchY);
+      }
+      const fitted = applyCornerFillet(res.circles, L, W, R, dEff / 2);
+      const circles = fitted.map(c => ({ ...c, physR: dPhys / 2 }));
+      return { count: circles.length, rects: null, circles, itemArea: Math.PI * (dPhys / 2) ** 2 };
+    }
+  }
+
+  function layerSig(l) {
+    return JSON.stringify({
+      t: l.productType, d: l.dims, p: l.packing, a: l.align || { x: "left", y: "top" },
+      bb: l.baseboard, cap: l.cap
+    });
+  }
+
+  // ---------------------------------------------------------------
+  // Baseboards & caps
+  //   - A layer's own baseboard bounds THAT layer's own packing.
+  //   - A layer's cap bounds the packing of the layer directly ABOVE it.
+  //   - A cap defaults to mirroring its layer's baseboard (dims, thickness,
+  //     fillet, position) until explicitly unlinked.
+  //   - Fillet radius is accounted for at the actual corner geometry, not
+  //     as a blanket inset: boxes get a tight rectangular inset (their own
+  //     corner point just needs to clear the arc — see boxCornerInset);
+  //     rolls are checked and, where needed, nudged per-item against the
+  //     real arc so they can hug the curve (see applyCornerFillet). The
+  //     drawn outline always shows the true rounded corner.
+  //   - Only the BOTTOM-most layer's baseboard can override the pallet deck
+  //     as the bounding surface (layer.baseboard.overridesPallet) — for
+  //     every other layer, "what physically sits under the product" is
+  //     already the cap or baseboard below it, so there's no second surface
+  //     to choose between.
+  // ---------------------------------------------------------------
+  function defaultBoard() {
+    return { enabled: false, length: state.pallet.length, width: state.pallet.width, thickness: 0.5, fillet: 0, align: { x: "center", y: "center" }, overridesPallet: false, linkedToCapBelow: false };
+  }
+  function defaultCap() {
+    return { enabled: false, linked: true, length: state.pallet.length, width: state.pallet.width, thickness: 0.5, fillet: 0, align: { x: "center", y: "center" } };
+  }
+  function ensureBoards(layer) {
+    if (!layer.baseboard) layer.baseboard = defaultBoard();
+    if (!layer.cap) layer.cap = defaultCap();
+    return layer;
+  }
+  // These two resolve by INDEX (not by layer object) and call each other,
+  // because linking now goes both directions along the stack:
+  //   - a cap can mirror its OWN layer's baseboard (unchanged)
+  //   - a baseboard can mirror the CAP of the layer directly BELOW it —
+  //     physically the same board, since that cap already sits where this
+  //     layer's baseboard would otherwise start.
+  // Neither is used to bound its own layer's product (see layerBounds) — a
+  // cap only ever bounds the layer stacked ON TOP of it, never the product
+  // it itself sits on. The mutual recursion is safe: effectiveCap(i) can
+  // call effectiveBaseboard(i) (same index), which can call
+  // effectiveCap(i-1) (strictly lower index) — never a cycle.
+  function effectiveCap(index) {
+    const layer = state.layers[index];
+    if (!layer) return defaultCap();
+    const cap = layer.cap || defaultCap();
+    if (cap.linked) {
+      const bb = effectiveBaseboard(index);
+      if (bb.enabled) {
+        return {
+          enabled: cap.enabled, linked: true,
+          length: bb.length, width: bb.width, thickness: bb.thickness, fillet: bb.fillet, align: bb.align
+        };
+      }
+    }
+    return cap;
+  }
+  function effectiveBaseboard(index) {
+    const layer = state.layers[index];
+    if (!layer) return defaultBoard();
+    const bb = layer.baseboard || defaultBoard();
+    if (bb.linkedToCapBelow && index > 0) {
+      const belowCap = effectiveCap(index - 1);
+      if (belowCap.enabled) {
+        return {
+          enabled: bb.enabled, linkedToCapBelow: true, overridesPallet: bb.overridesPallet,
+          length: belowCap.length, width: belowCap.width, thickness: belowCap.thickness,
+          fillet: belowCap.fillet, align: belowCap.align
+        };
+      }
+    }
+    return bb;
+  }
+  // allowOverhang lets the board's own length/width exceed the pallet's —
+  // only used for a bottom-layer baseboard set to override the pallet deck.
+  // Slack (and so the board's offset) can go negative, which is exactly
+  // what lets it hang past the pallet edge instead of being clamped to it.
+  function boardRect(board, pallet, allowOverhang) {
+    const len = allowOverhang ? board.length : Math.min(board.length, pallet.length);
+    const wid = allowOverhang ? board.width : Math.min(board.width, pallet.width);
+    const slackX = pallet.length - len, slackY = pallet.width - wid;
+    const align = board.align || { x: "left", y: "top" };
+    const ox = align.x === "right" ? slackX : align.x === "center" ? slackX / 2 : 0;
+    const oy = align.y === "bottom" ? slackY : align.y === "center" ? slackY / 2 : 0;
+    return { x0: ox, y0: oy, x1: ox + len, y1: oy + wid };
+  }
+  // Tight rectangular inset for a SQUARE-cornered item (a box): its own
+  // corner point just needs to clear the arc, which needs an inset of
+  // R·(1 − 1/√2) ≈ 0.293·R on each side — not the full radius. A corner
+  // point at (R,R) from the true corner sits exactly at the arc's own
+  // center, nowhere near the cut, so a full-radius inset over-shrinks the
+  // straight edges for no reason; anything less than 0.293·R still leaves
+  // the rectangle's own corner inside the cut zone.
+  function boxCornerInset(rect, R) {
+    if (R <= 0) return rect;
+    const f = Math.min(R * (1 - Math.SQRT1_2), (rect.x1 - rect.x0) / 2, (rect.y1 - rect.y0) / 2);
+    return { x0: rect.x0 + f, y0: rect.y0 + f, x1: rect.x1 - f, y1: rect.y1 - f };
+  }
+  function intersectRect(a, b) {
+    return { x0: Math.max(a.x0, b.x0), y0: Math.max(a.y0, b.y0), x1: Math.min(a.x1, b.x1), y1: Math.min(a.y1, b.y1) };
+  }
+  // Usable packing footprint for state.layers[index]: pallet, narrowed by
+  // this layer's own baseboard and by the cap of the layer below it — unless
+  // this is the bottom layer AND its baseboard is set to override the
+  // pallet deck, in which case the baseboard alone (unclamped, can overhang)
+  // is the bound and the pallet rect isn't intersected in at all. The
+  // returned rect is the RAW footprint (no fillet inset baked in — that's
+  // applied per product type in computeLayer); `.corner` carries the
+  // effective fillet radius at its four corners, 0 if nothing rounds them.
+  // When both a baseboard and a cap-below are active with different
+  // fillets, the smaller (tighter, more restrictive) one is used — a
+  // simplification, since the true intersection of two differently-rounded
+  // rectangles isn't a single clean radius.
+  function layerBounds(index) {
+    const pallet = state.pallet;
+    const layer = state.layers[index];
+    if (!layer) return { x0: 0, y0: 0, x1: pallet.length, y1: pallet.width, corner: 0 };
+    const bb = effectiveBaseboard(index);
+    const bbOverride = index === 0 && bb.enabled && bb.overridesPallet;
+    let rect, bbFillet = null, capFillet = null;
+    if (bbOverride) {
+      rect = boardRect(bb, pallet, true);
+      bbFillet = bb.fillet || 0;
+    } else {
+      rect = { x0: 0, y0: 0, x1: pallet.length, y1: pallet.width };
+      if (bb.enabled) {
+        rect = intersectRect(rect, boardRect(bb, pallet, false));
+        // The board's rounded corner only shapes the packable area when the
+        // board itself is what's actually governing. For a non-bottom layer
+        // there's no choice — its baseboard IS the local bounding surface,
+        // so the fillet always applies. For the bottom layer, reaching this
+        // branch means "Pallet deck" was explicitly chosen over "This
+        // baseboard" (see bbOverride above) — the board can still shrink
+        // the usable rectangle (it's physically what product rests on), but
+        // the plain pallet deck has no curve, so its corner stays square.
+        if (index > 0) bbFillet = bb.fillet || 0;
+      }
+    }
+    if (index > 0) {
+      const cap = effectiveCap(index - 1);
+      if (cap.enabled) {
+        rect = intersectRect(rect, boardRect(cap, pallet, false));
+        capFillet = cap.fillet || 0;
+      }
+    }
+    if (rect.x1 < rect.x0) rect.x1 = rect.x0;
+    if (rect.y1 < rect.y0) rect.y1 = rect.y0;
+    rect.corner = bbFillet !== null && capFillet !== null ? Math.min(bbFillet, capFillet)
+      : bbFillet !== null ? bbFillet
+      : capFillet !== null ? capFillet : 0;
+    return rect;
+  }
+  function layerIndex(layer) { return state.layers.findIndex(l => l.id === layer.id); }
+
+  // ---------------------------------------------------------------
+  // Sweep / solve helpers (shared by magic numbers + solver)
+  // ---------------------------------------------------------------
+  function countAt(layer, isRoll, sweepDim, v, bounds) {
+    const l2 = JSON.parse(JSON.stringify(layer));
+    if (isRoll) l2.dims.diameter = Math.max(0.03, v);
+    else l2.dims[sweepDim] = Math.max(0.03, v);
+    return computeLayer(l2, bounds).count;
+  }
+
+  function itemAreaAt(layer, isRoll, sweepDim, v) {
+    if (isRoll) return Math.PI * (v / 2) ** 2;
+    if (sweepDim === "length") return v * layer.dims.width;
+    return layer.dims.length * v;
+  }
+
+  // Walk outward from (fromV, c0) in direction dir until the count differs,
+  // then binary-search the exact boundary. Returns null if no change is
+  // found before limitV.
+  function scanBreak(layer, isRoll, sweepDim, fromV, c0, dir, limitV, bounds) {
+    let coarse = Math.max(0.02, Math.abs(fromV) * 0.01);
+    let v = fromV;
+    for (let i = 0; i < 600; i++) {
+      let nv = v + dir * coarse;
+      let atLimit = false;
+      if (dir > 0 && nv >= limitV) { nv = limitV; atLimit = true; }
+      if (dir < 0 && nv <= limitV) { nv = limitV; atLimit = true; }
+      const c = countAt(layer, isRoll, sweepDim, nv, bounds);
+      if (c !== c0) {
+        let lo = v, hi = nv;
+        for (let k = 0; k < 22; k++) {
+          const mid = (lo + hi) / 2;
+          const cm = countAt(layer, isRoll, sweepDim, mid, bounds);
+          if (cm === c0) { if (dir > 0) lo = mid; else hi = mid; } else { if (dir > 0) hi = mid; else lo = mid; }
+        }
+        return { boundary: dir > 0 ? hi : lo, newCount: c };
+      }
+      if (atLimit) return null;
+      v = nv;
+      coarse *= 1.15;
+    }
+    return null;
+  }
+
+  function computeAutoWindow(layer, isRoll, sweepDim, center, loBoundAbs, hiBoundAbs, bounds) {
+    const c0 = countAt(layer, isRoll, sweepDim, center, bounds);
+    const up = scanBreak(layer, isRoll, sweepDim, center, c0, +1, hiBoundAbs, bounds);
+    const down = scanBreak(layer, isRoll, sweepDim, center, c0, -1, loBoundAbs, bounds);
+    let dMin, dMax;
+    if (down) { const span = center - down.boundary; dMin = Math.max(loBoundAbs, down.boundary - Math.max(span * 0.25, 0.03)); }
+    else dMin = Math.max(loBoundAbs, center - Math.max(center * 0.25, 0.3));
+    if (up) { const span = up.boundary - center; dMax = Math.min(hiBoundAbs, up.boundary + Math.max(span * 0.25, 0.03)); }
+    else dMax = Math.min(hiBoundAbs, center + Math.max(center * 0.25, 0.3));
+    return { dMin, dMax, foundUp: !!up, foundDown: !!down };
+  }
+
+  // Samples the window, then refines every count transition to a precise
+  // boundary via binary search — this is what keeps the breakpoint table
+  // from degenerating into near-duplicate "5.66–5.66" rows.
+  function sweepAndRefine(layer, isRoll, sweepDim, minV, maxV, samples, bounds) {
+    const pts = [];
+    const step = (maxV - minV) / samples;
+    for (let i = 0; i <= samples; i++) {
+      const v = i === samples ? maxV : minV + i * step;
+      pts.push({ v, count: countAt(layer, isRoll, sweepDim, v, bounds) });
+    }
+    const segs = [];
+    let segStart = minV, segCount = pts[0].count;
+    for (let i = 1; i < pts.length; i++) {
+      if (pts[i].count !== segCount) {
+        let lo = pts[i - 1].v, hi = pts[i].v;
+        for (let k = 0; k < 24; k++) {
+          const mid = (lo + hi) / 2;
+          const cm = countAt(layer, isRoll, sweepDim, mid, bounds);
+          if (cm === segCount) lo = mid; else hi = mid;
+        }
+        segs.push({ start: segStart, end: hi, count: segCount });
+        segStart = hi; segCount = pts[i].count;
+      }
+    }
+    segs.push({ start: segStart, end: maxV, count: segCount });
+    return { segs };
+  }
+
+  // Largest value of the free dimension that still reaches targetQty,
+  // assuming count is (practically) non-increasing as the dimension grows.
+  function solveMaxSize(layer, isRoll, freeDim, targetQty, bounds) {
+    const lo = 0.1;
+    const hi = isRoll ? Math.min(bounds.x1 - bounds.x0, bounds.y1 - bounds.y0)
+                       : (freeDim === "length" ? bounds.x1 - bounds.x0 : bounds.y1 - bounds.y0);
+    const cLo = countAt(layer, isRoll, freeDim, lo, bounds);
+    if (cLo < targetQty) return null;
+    const cHi = countAt(layer, isRoll, freeDim, hi, bounds);
+    if (cHi >= targetQty) return { value: hi, count: cHi };
+    let loV = lo, hiV = hi;
+    for (let i = 0; i < 42; i++) {
+      const mid = (loV + hiV) / 2;
+      const c = countAt(layer, isRoll, freeDim, mid, bounds);
+      if (c >= targetQty) loV = mid; else hiV = mid;
+    }
+    return { value: loV, count: countAt(layer, isRoll, freeDim, loV, bounds) };
+  }
+
+  // ---------------------------------------------------------------
+  // Generic helpers
+  // ---------------------------------------------------------------
+  function fmt(n, dp) {
+    dp = dp === undefined ? 2 : dp;
+    const r = Math.round(n * Math.pow(10, dp)) / Math.pow(10, dp);
+    return r.toString();
+  }
+  function esc(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function getLayer(id) { return state.layers.find(l => l.id === id); }
+  function selectedLayer() { return getLayer(state.selectedId) || state.layers[0]; }
+
+  // Per-layer height = baseboard thickness (if any) + product height + cap
+  // thickness (if any) — baseboard sits under the product, cap sits atop it.
+  function layerHeightParts(index) {
+    const l = state.layers[index];
+    const bb = effectiveBaseboard(index);
+    const bbT = bb.enabled ? bb.thickness : 0;
+    const cap = effectiveCap(index);
+    const capT = cap.enabled ? cap.thickness : 0;
+    return { bb: bbT, product: l.dims.height, cap: capT, total: bbT + l.dims.height + capT };
+  }
+
+  function zRanges() {
+    let z = 0;
+    return state.layers.map((l, i) => {
+      const start = z;
+      const parts = layerHeightParts(i);
+      const end = z + parts.total;
+      z = end;
+      return { id: l.id, start, end, parts };
+    });
+  }
+
+  // A text+decimal-mode numeric field that never rewrites its own DOM node
+  // while the person is typing — only on blur does it normalize/clamp.
+  // This is what fixes decimal entry: nothing steals focus or strips a
+  // trailing "." mid-keystroke.
+  function numField(el, get, set, opts) {
+    opts = opts || {};
+    const dp = opts.dp !== undefined ? opts.dp : 3;
+    const minV = opts.min !== undefined ? opts.min : 0.01;
+    el.value = fmt(get(), dp);
+    el.addEventListener("input", () => {
+      const raw = el.value;
+      if (/^\d*\.?\d*$/.test(raw) && raw !== "" && raw !== ".") {
+        const n = parseFloat(raw);
+        if (!isNaN(n) && n >= minV) { set(n); if (opts.onLive) opts.onLive(); }
+      }
+    });
+    el.addEventListener("blur", () => {
+      let n = parseFloat(el.value);
+      if (!isFinite(n) || n < minV) n = get();
+      set(n);
+      el.value = fmt(n, dp);
+      // Deferred, not called inline: blur fires synchronously as part of
+      // the SAME click gesture that's moving focus elsewhere (e.g. onto a
+      // different layer row) — rebuilding a clickable list's DOM (what
+      // onCommit does, via renderDependents) right then can swap out the
+      // very element the browser is mid-click on, silently dropping that
+      // click. Queuing it lets that click's own handler (and its render())
+      // run first; this then just redraws current state, harmlessly.
+      if (opts.onCommit) setTimeout(opts.onCommit, 0);
+    });
+  }
+
+  // ---------------------------------------------------------------
+  // Alignment: shift a layer's packed cluster within its usable footprint
+  // (the pallet, narrowed by any baseboard/cap — see layerBounds)
+  // ---------------------------------------------------------------
+  // Falls back to the layer's baseboard alignment (when one is enabled,
+  // resolved through any cap-below link) rather than a hardcoded left/top —
+  // the product stays anchored to the baseboard until the person explicitly
+  // sets its own position.
+  function defaultProductAlign(index) {
+    const bb = effectiveBaseboard(index);
+    if (bb.enabled && bb.align) return bb.align;
+    return { x: "left", y: "top" };
+  }
+  function alignOffset(layer, index, computed, containerW, containerH) {
+    let clusterW = 0, clusterH = 0;
+    if (computed.rects) {
+      computed.rects.forEach(r => { clusterW = Math.max(clusterW, r.x + r.w); clusterH = Math.max(clusterH, r.y + r.h); });
+    } else if (computed.circles) {
+      computed.circles.forEach(c => { clusterW = Math.max(clusterW, c.cx + c.r); clusterH = Math.max(clusterH, c.cy + c.r); });
+    }
+    const slackX = Math.max(0, containerW - clusterW);
+    const slackY = Math.max(0, containerH - clusterH);
+    const align = layer.align || defaultProductAlign(index);
+    const offsetX = align.x === "right" ? slackX : align.x === "center" ? slackX / 2 : 0;
+    const offsetY = align.y === "bottom" ? slackY : align.y === "center" ? slackY / 2 : 0;
+    return { offsetX, offsetY };
+  }
+
+  // Full pipeline for one layer: resolve its usable bounds (baseboard/cap
+  // constraints), pack within them, align the result, then shift into
+  // pallet-absolute coordinates for rendering.
+  function positionedComputed(layer, index) {
+    const bounds = layerBounds(index);
+    const computed = computeLayer(layer, bounds);
+    const { offsetX, offsetY } = alignOffset(layer, index, computed, bounds.x1 - bounds.x0, bounds.y1 - bounds.y0);
+    const totalX = offsetX + bounds.x0, totalY = offsetY + bounds.y0;
+    const out = { count: computed.count, itemArea: computed.itemArea, bounds };
+    if (computed.rects) out.rects = computed.rects.map(r => ({ ...r, x: r.x + totalX, y: r.y + totalY }));
+    if (computed.circles) out.circles = computed.circles.map(c => ({ ...c, cx: c.cx + totalX, cy: c.cy + totalY }));
+    return out;
+  }
+
+  // ---------------------------------------------------------------
+  // Dimension overlay: unique measurements only — one item-size callout,
+  // one gap per axis (if items repeat that way), and non-trivial edge
+  // margins. Never one label per repeated item.
+  // ---------------------------------------------------------------
+  function analyzeCircleRows(circles) {
+    const rows = [];
+    circles.forEach(c => {
+      let row = rows.find(r => Math.abs(r.cy - c.cy) < 1e-4);
+      if (!row) { row = { cy: c.cy, items: [] }; rows.push(row); }
+      row.items.push(c);
+    });
+    rows.sort((a, b) => a.cy - b.cy);
+    rows.forEach(r => r.items.sort((a, b) => a.cx - b.cx));
+    return rows;
+  }
+
+  function physicalBounds(computed) {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    if (computed.rects) {
+      computed.rects.forEach(r => {
+        minX = Math.min(minX, r.x); minY = Math.min(minY, r.y);
+        maxX = Math.max(maxX, r.x + r.w); maxY = Math.max(maxY, r.y + r.h);
+      });
+    } else if (computed.circles) {
+      computed.circles.forEach(c => {
+        minX = Math.min(minX, c.cx - c.physR); minY = Math.min(minY, c.cy - c.physR);
+        maxX = Math.max(maxX, c.cx + c.physR); maxY = Math.max(maxY, c.cy + c.physR);
+      });
+    }
+    if (!isFinite(minX)) return { minX: 0, minY: 0, maxX: 0, maxY: 0 };
+    return { minX, minY, maxX, maxY };
+  }
+
+  // Dimension line with its own extension lines running from the actual
+  // feature points out to where the line sits — this is what lets every
+  // callout live outside the pallet border instead of on top of the
+  // drawing. (x1,yFeat1)/(x2,yFeat2) are the feature points; yDim is the
+  // lane the arrowed line and label sit on.
+  function hDim(x1, x2, yFeat1, yFeat2, yDim, label, fs) {
+    const sw = fs * 0.09, extSw = fs * 0.05;
+    return `<line x1="${x1}" y1="${yFeat1}" x2="${x1}" y2="${yDim}" stroke="var(--ink-dim)" stroke-width="${extSw}"
+        stroke-dasharray="${fs * 0.14},${fs * 0.14}" vector-effect="non-scaling-stroke"/>
+      <line x1="${x2}" y1="${yFeat2}" x2="${x2}" y2="${yDim}" stroke="var(--ink-dim)" stroke-width="${extSw}"
+        stroke-dasharray="${fs * 0.14},${fs * 0.14}" vector-effect="non-scaling-stroke"/>
+      <line x1="${x1}" y1="${yDim}" x2="${x2}" y2="${yDim}" stroke="var(--ink-dim)" stroke-width="${sw}"
+        marker-start="url(#dimArrow)" marker-end="url(#dimArrow)" vector-effect="non-scaling-stroke"/>
+      <rect x="${(x1 + x2) / 2 - label.length * fs * 0.31}" y="${yDim + fs * 0.2}" width="${label.length * fs * 0.62}"
+        height="${fs * 1.05}" fill="var(--surface)" fill-opacity="0.92" rx="${fs * 0.12}"/>
+      <text x="${(x1 + x2) / 2}" y="${yDim + fs * 1.0}" text-anchor="middle" font-family="var(--font-mono)"
+        font-size="${fs}" fill="var(--ink)">${label}</text>`;
+  }
+  // side: -1 = lane and label sit to the LEFT of the pallet (label further
+  // left, away from the border); +1 reserved for a future right-side lane.
+  function vDim(y1, y2, xFeat1, xFeat2, xDim, label, fs, side) {
+    side = side || -1;
+    const sw = fs * 0.09, extSw = fs * 0.05;
+    const lx = side < 0 ? xDim - fs * 0.35 : xDim + fs * 0.35;
+    const anchor = side < 0 ? "end" : "start";
+    const rectX = side < 0 ? lx - label.length * fs * 0.62 : lx;
+    return `<line x1="${xFeat1}" y1="${y1}" x2="${xDim}" y2="${y1}" stroke="var(--ink-dim)" stroke-width="${extSw}"
+        stroke-dasharray="${fs * 0.14},${fs * 0.14}" vector-effect="non-scaling-stroke"/>
+      <line x1="${xFeat2}" y1="${y2}" x2="${xDim}" y2="${y2}" stroke="var(--ink-dim)" stroke-width="${extSw}"
+        stroke-dasharray="${fs * 0.14},${fs * 0.14}" vector-effect="non-scaling-stroke"/>
+      <line x1="${xDim}" y1="${y1}" x2="${xDim}" y2="${y2}" stroke="var(--ink-dim)" stroke-width="${sw}"
+        marker-start="url(#dimArrow)" marker-end="url(#dimArrow)" vector-effect="non-scaling-stroke"/>
+      <rect x="${rectX}" y="${(y1 + y2) / 2 - fs * 0.55}" width="${label.length * fs * 0.62}"
+        height="${fs * 1.05}" fill="var(--surface)" fill-opacity="0.92" rx="${fs * 0.12}"/>
+      <text x="${lx}" y="${(y1 + y2) / 2 + fs * 0.3}" text-anchor="${anchor}" font-family="var(--font-mono)"
+        font-size="${fs}" fill="var(--ink)">${label}</text>`;
+  }
+
+  // Two lanes per side: an inner lane (item size, gap, edge margins — these
+  // occupy non-overlapping stretches of the pallet edge, so they share one
+  // row/column without colliding) and an outer lane holding just the one
+  // full pallet length/width line. Everything lives outside the border.
+  function buildDimOverlay(layer, computed, pallet, fs) {
+    const L = pallet.length, W = pallet.width;
+    // The inner lane holds several labels (item size, gap, edge margins)
+    // side by side along the pallet edge. At real physical scale a label's
+    // text box can easily be wider than the small span it's describing
+    // (e.g. a 0.6″ edge margin next to a 5.5″ diameter callout) — so two
+    // neighboring labels can collide even though the features they
+    // describe don't overlap. hY/vX below detect that and stagger the
+    // colliding label out to a further sub-lane instead of drawing
+    // garbled overlapping text. The outer lane (full length/width) is
+    // pushed out far enough to always clear every stagger sub-lane.
+    const laneStep = fs * 1.35, laneGap1 = fs * 1.7, MAX_STAGGER = 2;
+    const laneGap2 = laneGap1 + (MAX_STAGGER + 1) * laneStep + fs * 0.6;
+    const bInner = W + laneGap1, bOuter = W + laneGap2;
+    const lInner = -laneGap1, lOuter = -laneGap2;
+    let out = "";
+    const MIN_GAP = 0.03, MIN_MARGIN = 0.05;
+
+    const hPlaced = [];
+    function hY(xMid, labelLen) {
+      const halfW = labelLen * fs * 0.31;
+      for (let lane = 0; lane <= MAX_STAGGER; lane++) {
+        const y = bInner + lane * laneStep;
+        const x0 = xMid - halfW, x1 = xMid + halfW;
+        if (!hPlaced.some(p => p.y === y && x0 < p.x1 && x1 > p.x0)) { hPlaced.push({ y, x0, x1 }); return y; }
+      }
+      const y = bInner + MAX_STAGGER * laneStep;
+      hPlaced.push({ y, x0: xMid - halfW, x1: xMid + halfW });
+      return y;
+    }
+    const vPlaced = [];
+    function vX(yMid) {
+      const halfH = fs * 0.55;
+      for (let lane = 0; lane <= MAX_STAGGER; lane++) {
+        const x = lInner - lane * laneStep;
+        const y0 = yMid - halfH, y1 = yMid + halfH;
+        if (!vPlaced.some(p => p.x === x && y0 < p.y1 && y1 > p.y0)) { vPlaced.push({ x, y0, y1 }); return x; }
+      }
+      const x = lInner - MAX_STAGGER * laneStep;
+      vPlaced.push({ x, y0: yMid - halfH, y1: yMid + halfH });
+      return x;
+    }
+    // Wrappers that place a label via hY/vX first, then draw at that lane.
+    function hDimAuto(x1, x2, yFeat1, yFeat2, label, fsArg) {
+      return hDim(x1, x2, yFeat1, yFeat2, hY((x1 + x2) / 2, label.length), label, fsArg);
+    }
+    function vDimAuto(y1, y2, xFeat1, xFeat2, label, fsArg) {
+      return vDim(y1, y2, xFeat1, xFeat2, vX((y1 + y2) / 2), label, fsArg);
+    }
+
+    if (layer.productType === "box" && computed.rects && computed.rects.length) {
+      const b = computed.rects[0];
+      out += hDimAuto(b.x, b.x + b.w, b.y + b.h, b.y + b.h, `${fmt(layer.dims.length, 2)}″`, fs);
+      out += vDimAuto(b.y, b.y + b.h, b.x, b.x, `${fmt(layer.dims.width, 2)}″`, fs);
+    } else if (layer.productType === "roll" && computed.circles && computed.circles.length) {
+      const c0 = computed.circles[0];
+      out += hDimAuto(c0.cx - c0.physR, c0.cx + c0.physR, c0.cy + c0.physR, c0.cy + c0.physR,
+        `⌀${fmt(layer.dims.diameter, 2)}″`, fs);
+
+      const rows = analyzeCircleRows(computed.circles);
+      if (rows.length && rows[0].items.length > 1) {
+        const a = rows[0].items[0], b2 = rows[0].items[1];
+        const gap = b2.cx - a.physR - (a.cx + a.physR);
+        if (gap > MIN_GAP) out += hDimAuto(a.cx + a.physR, b2.cx - a.physR, a.cy + a.physR, a.cy + a.physR,
+          `${fmt(gap, 2)}″ gap`, fs);
+      }
+      if (rows.length > 1) {
+        const pitch = rows[1].cy - rows[0].cy;
+        if (layer.packing === "grid") {
+          const gap = pitch - c0.physR * 2;
+          if (gap > MIN_GAP) out += vDimAuto(rows[0].cy + c0.physR, rows[1].cy - c0.physR, c0.cx - c0.physR, c0.cx - c0.physR,
+            `${fmt(gap, 2)}″ gap`, fs);
+        } else {
+          out += vDimAuto(rows[0].cy, rows[1].cy, c0.cx - c0.physR, c0.cx - c0.physR,
+            `${fmt(pitch, 2)}″ row pitch`, fs);
+        }
+      }
+    }
+
+    const bnd = physicalBounds(computed);
+    const midY = (bnd.minY + bnd.maxY) / 2, midX = (bnd.minX + bnd.maxX) / 2;
+    const leftM = bnd.minX, rightM = L - bnd.maxX, topM = bnd.minY, bottomM = W - bnd.maxY;
+    if (leftM > MIN_MARGIN) out += hDimAuto(0, bnd.minX, midY, midY, `${fmt(leftM, 2)}″ edge`, fs);
+    if (rightM > MIN_MARGIN) out += hDimAuto(bnd.maxX, L, midY, midY, `${fmt(rightM, 2)}″ edge`, fs);
+    if (topM > MIN_MARGIN) out += vDimAuto(0, bnd.minY, midX, midX, `${fmt(topM, 2)}″ edge`, fs);
+    if (bottomM > MIN_MARGIN) out += vDimAuto(bnd.maxY, W, midX, midX, `${fmt(bottomM, 2)}″ edge`, fs);
+
+    out += hDim(0, L, W, W, bOuter, `${fmt(L, 1)}″ length`, fs);
+    out += vDim(0, W, 0, 0, lOuter, `${fmt(W, 1)}″ width`, fs);
+
+    return out;
+  }
+
+  // ---------------------------------------------------------------
+  // SVG diagram builder (top-down)
+  // ---------------------------------------------------------------
+  function buildSVG(layer, computed, pallet, opts) {
+    opts = opts || {};
+    const big = !!opts.big;
+    const L = pallet.length, W = pallet.width;
+    const fs = big ? Math.max(2.2, Math.min(3.4, Math.max(L, W) * 0.03)) : 0;
+    // Dimension lines live outside the border now (see buildDimOverlay):
+    // a wide left margin for the two vertical lanes + their labels, a
+    // shorter bottom margin for the two horizontal lanes.
+    const mL = big ? fs * 15 : 6, mR = big ? 10 : 6, mT = big ? 8 : 6, mB = big ? fs * 10 : 6;
+    const sw = Math.max(L, W) / 240;
+
+    // A bottom-layer baseboard set to override the pallet can overhang it —
+    // widen the viewBox (beyond the dimension-lane margins) to fit that,
+    // without moving where the pallet-relative lanes/labels anchor.
+    let extraL = 0, extraR = 0, extraT = 0, extraB = 0;
+    const growFor = r => {
+      if (!r) return;
+      extraL = Math.max(extraL, -r.x0);
+      extraR = Math.max(extraR, r.x1 - L);
+      extraT = Math.max(extraT, -r.y0);
+      extraB = Math.max(extraB, r.y1 - W);
+    };
+    growFor(opts.baseboard);
+    growFor(opts.bounds);
+    const vw = L + mL + mR + extraL + extraR, vh = W + mT + mB + extraT + extraB;
+
+    let boards = "";
+    if (opts.baseboard) {
+      const bd = opts.baseboard;
+      const rx = Math.min(bd.fillet || 0, (bd.x1 - bd.x0) / 2, (bd.y1 - bd.y0) / 2);
+      boards += `<rect x="${bd.x0}" y="${bd.y0}" width="${bd.x1 - bd.x0}" height="${bd.y1 - bd.y0}" rx="${rx}" ry="${rx}"
+        fill="var(--ink-dim)" fill-opacity="0.1" stroke="var(--ink-dim)" stroke-width="${sw * 1.2}"
+        stroke-dasharray="${sw * 3},${sw * 2}" vector-effect="non-scaling-stroke"/>`;
+    }
+    if (opts.bounds) {
+      const bo = opts.bounds;
+      boards += `<rect x="${bo.x0}" y="${bo.y0}" width="${bo.x1 - bo.x0}" height="${bo.y1 - bo.y0}"
+        fill="none" stroke="var(--accent)" stroke-width="${sw * 1.4}"
+        stroke-dasharray="${sw * 2},${sw * 2}" vector-effect="non-scaling-stroke"/>`;
+    }
+
+    let items = "";
+    if (computed.rects) {
+      for (const r of computed.rects) {
+        items += `<rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="${Math.min(r.w, r.h) * 0.06}"
+          fill="var(--accent)" fill-opacity="0.2" stroke="var(--accent)" stroke-width="${sw * 1.6}" vector-effect="non-scaling-stroke"/>`;
+      }
+    } else if (computed.circles) {
+      for (const c of computed.circles) {
+        if (c.r > c.physR + 1e-6) {
+          items += `<circle cx="${c.cx}" cy="${c.cy}" r="${c.r}" fill="none" stroke="var(--ink-dim)"
+            stroke-width="${sw}" stroke-dasharray="${sw * 3},${sw * 2.2}" vector-effect="non-scaling-stroke"/>`;
+        }
+        items += `<circle cx="${c.cx}" cy="${c.cy}" r="${c.physR}" fill="var(--accent)" fill-opacity="0.22"
+          stroke="var(--accent)" stroke-width="${sw * 1.6}" vector-effect="non-scaling-stroke"/>`;
+      }
+    }
+
+    let overlay = "";
+    if (big && opts.showDims !== false) {
+      overlay = `<defs>
+          <marker id="dimArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4.5" markerHeight="4.5" orient="auto-start-reverse">
+            <path d="M0,1 L9,5 L0,9 Z" fill="var(--ink-dim)"/>
+          </marker>
+        </defs>` + buildDimOverlay(layer, computed, pallet, fs);
+    }
+
+    return `<svg viewBox="${-mL - extraL} ${-mT - extraT} ${vw} ${vh}" preserveAspectRatio="xMidYMid meet" role="img"
+        aria-label="${esc(layer.name)} top-down layout, ${computed.count} placed">
+      <rect x="0" y="0" width="${L}" height="${W}" fill="var(--surface-2)" stroke="var(--ink-dim)"
+        stroke-width="${sw * 2}" vector-effect="non-scaling-stroke"/>
+      ${boards}
+      ${items}
+      ${overlay}
+    </svg>`;
+  }
+
+  // ---------------------------------------------------------------
+  // Render: pallet dims inputs (bound once — never rebuilt by render())
+  // ---------------------------------------------------------------
+  function bindPalletInputs() {
+    numField(document.getElementById("palletLength"), () => state.pallet.length, v => state.pallet.length = v,
+      { min: 1, dp: 2, onLive: render, onCommit: render });
+    numField(document.getElementById("palletWidth"), () => state.pallet.width, v => state.pallet.width = v,
+      { min: 1, dp: 2, onLive: render, onCommit: render });
+    numField(document.getElementById("palletMaxH"), () => state.pallet.maxHeight, v => state.pallet.maxHeight = v,
+      { min: 0.5, dp: 2, onLive: render, onCommit: render });
+  }
+
+  // ---------------------------------------------------------------
+  // Render: layer list
+  // ---------------------------------------------------------------
+  function renderLayerList() {
+    const el = document.getElementById("layerList");
+    const zr = zRanges();
+    const rows = state.layers.map((l, i) => {
+      const computed = computeLayer(l, layerBounds(i));
+      const z = zr[i];
+      const overflow = z.end > state.pallet.maxHeight + 1e-6;
+      return `<button class="layer-row ${l.id === state.selectedId ? "active" : ""}" data-select="${l.id}">
+        <span class="sw ${overflow ? "bad" : ""}"></span>
+        <span class="meta">
+          <div class="nm">${esc(l.name)}</div>
+          <div class="sub">z ${fmt(z.start, 1)}–${fmt(z.end, 1)}"  ·  ${l.productType === "box" ? "box" : "roll"}</div>
+        </span>
+        <span class="cnt">${computed.count}</span>
+      </button>`;
+    });
+    // Displayed top-to-bottom = physically top-to-bottom, i.e. reverse of
+    // the underlying array (array order is base-first, matching zRanges).
+    el.innerHTML = rows.slice().reverse().join("") || `<div class="empty">No layers yet</div>`;
+
+    document.querySelectorAll("[data-select]").forEach(b => {
+      b.onclick = () => { state.selectedId = b.getAttribute("data-select"); render(); };
+    });
+
+    const selIdx = state.layers.findIndex(l => l.id === state.selectedId);
+    document.getElementById("btnDelLayer").disabled = state.layers.length <= 1;
+    // "Up" moves toward the top of the physical stack = higher array index.
+    document.getElementById("btnMoveUp").disabled = selIdx < 0 || selIdx >= state.layers.length - 1;
+    document.getElementById("btnMoveDown").disabled = selIdx <= 0;
+  }
+
+  const ALIGN_X = ["left", "center", "right"];
+  const ALIGN_Y = ["top", "center", "bottom"];
+  // target: "product" | "baseboard" | "cap" — tags the buttons so one
+  // delegated click handler can update the right align object.
+  function buildAlignGrid(align, target) {
+    align = align || { x: "left", y: "top" };
+    let cells = "";
+    ALIGN_Y.forEach(y => {
+      ALIGN_X.forEach(x => {
+        const on = align.x === x && align.y === y;
+        cells += `<button class="${on ? "on" : ""}" data-align-target="${target}" data-align-x="${x}" data-align-y="${y}"
+          title="${y} ${x}" aria-label="${y} ${x}"></button>`;
+      });
+    });
+    return `<div class="align-grid">${cells}</div>`;
+  }
+
+  // One labeled input, caption under — same pattern as the pallet-dims
+  // fields in the header, reused for every dimensions grid in the editor.
+  function dimField(id, label) {
+    return `<div class="dim-field"><label for="${id}">${label}</label><input id="${id}" type="text" inputmode="decimal"></div>`;
+  }
+
+  // ---------------------------------------------------------------
+  // Render: editor (only rebuilt on structural changes — see render())
+  // ---------------------------------------------------------------
+  function renderEditor() {
+    const layer = selectedLayer();
+    const el = document.getElementById("editorPanel");
+    if (!layer) { el.innerHTML = `<div class="empty">Select or add a layer</div>`; return; }
+
+    ensureBoards(layer);
+    const isBox = layer.productType === "box";
+    const idx = layerIndex(layer);
+    // bb/cap are the RAW stored fields — editing always writes to these,
+    // whichever way (if any) they're currently linked. capMirroring /
+    // bbMirroring separately answer whether display should show effective
+    // (mirrored) values instead, by resolving through the index-based
+    // effectiveCap/effectiveBaseboard chain.
+    const bb = layer.baseboard, cap = layer.cap;
+    const capMirroring = cap.linked && bb.enabled;
+    const capBelowEff = idx > 0 ? effectiveCap(idx - 1) : null;
+    const bbMirroring = idx > 0 && bb.linkedToCapBelow && !!(capBelowEff && capBelowEff.enabled);
+    const productAlign = layer.align || defaultProductAlign(idx);
+    const tab = state.editorTab === "boards" ? "boards" : "product";
+    const isBottom = idx === 0;
+
+    const productTabHTML = `
+        <div class="form-row">
+          <label>Product type</label>
+          <div class="type-toggle">
+            <button data-type="box" class="${isBox ? "on" : ""}">Box</button>
+            <button data-type="roll" class="${!isBox ? "on" : ""}">Roll</button>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Position on layer</label>
+          ${buildAlignGrid(productAlign, "product")}
+          <p class="hint">${bb.enabled && !layer.align
+            ? "Anchored to the baseboard's position — pick a cell here to set the product's own instead."
+            : "Where the packed group sits when it doesn't fill the whole footprint."}</p>
+        </div>
+        <div class="form-row">
+          <span class="section-title">Dimensions</span>
+          <div class="dims-triplet">
+            ${isBox
+              ? dimField("boxL", "Length (in)") + dimField("boxW", "Width (in)") + dimField("boxH", "Height (in)")
+              : dimField("rollD", "Diameter (in)") + dimField("rollPad", "Radial pad (in)") + dimField("rollH", "Height (in)")}
+          </div>
+          ${!isBox ? `<p class="hint">Radial padding is clearance all around each roll (a wrap or slip sheet) — packing math treats it as diameter + padding, in every direction.</p>` : ""}
+        </div>
+        <div class="form-row">
+          <label for="packSel">Packing method</label>
+          <select id="packSel">
+            ${isBox
+              ? `<option value="grid" ${layer.packing === "grid" ? "selected" : ""}>Rectangular array</option>
+                 <option value="tiling" ${layer.packing === "tiling" ? "selected" : ""}>Auto tiling (best-fit)</option>`
+              : `<option value="grid" ${layer.packing === "grid" ? "selected" : ""}>Rectangular array</option>
+                 <option value="close" ${layer.packing === "close" ? "selected" : ""}>Close-packed (hex)</option>`}
+          </select>
+        </div>
+        ${isBox && layer.packing === "tiling" ? `<p class="hint">Heuristic search over orientations and leftover-strip fills — not a guaranteed optimum.</p>` : ""}
+        ${!isBox ? (layer.packing === "grid" ? `
+        <div class="form-row">
+          <span class="section-title">Linear padding</span>
+          <div class="dims-triplet" style="grid-template-columns:1fr 1fr;">
+            ${dimField("rollPadX", "Between columns (x)") + dimField("rollPadY", "Between rows (y)")}
+          </div>
+          <p class="hint">Extra gap between adjacent rolls only (a divider strip) — the outermost rolls stay at the same distance from the layer boundary as with no linear padding.</p>
+        </div>
+        ` : `<p class="hint">Linear x/y padding only applies to the rectangular array — switch packing method to use it.</p>`) : ""}
+
+      <div class="solve-box">
+        <div class="solve-title">Solve from target quantity</div>
+        <p class="hint">Finds the largest ${isBox ? "length or width" : "diameter"} that still packs at least this many — pallet, baseboard/cap bounds, and every other dimension stay fixed.</p>
+        <div class="form-row">
+          <label for="solveQty">Target quantity</label>
+          <input id="solveQty" type="text" inputmode="numeric" placeholder="e.g. 40">
+        </div>
+        ${isBox ? `
+        <div class="form-row">
+          <label>Solve for</label>
+          <div class="radio-row">
+            <button data-solvedim="length" class="${state.solveDim === "length" ? "on" : ""}">Length</button>
+            <button data-solvedim="width" class="${state.solveDim === "width" ? "on" : ""}">Width</button>
+          </div>
+        </div>` : `<p class="hint" id="solvePadHint">Solving for diameter, with radial padding held fixed at ${fmt(layer.dims.padding || 0, 2)}&Prime;.</p>`}
+        <div class="btnrow">
+          <button class="mini primary" id="btnSolve">Solve</button>
+          <button class="mini" id="btnSolveApply" disabled>Apply to layer</button>
+        </div>
+        <p class="hint" id="solveResult"></p>
+      </div>
+    `;
+
+    const boardsTabHTML = `
+        <div class="form-row">
+          <label>Baseboard</label>
+          <div class="type-toggle">
+            <button data-board-toggle="baseboard" class="${bb.enabled ? "on" : ""}">${bb.enabled ? "Enabled — bounds this layer" : "Disabled"}</button>
+          </div>
+        </div>
+        ${bb.enabled ? `
+        ${idx > 0 ? `
+        <div class="form-row">
+          <label>Linked to cap of layer below</label>
+          <div class="type-toggle">
+            <button data-bb-link="1" class="${bb.linkedToCapBelow ? "on" : ""}">Linked</button>
+            <button data-bb-link="0" class="${!bb.linkedToCapBelow ? "on" : ""}">Independent</button>
+          </div>
+          <p class="hint">${bbMirroring
+            ? `Mirroring the cap directly below: ${fmt(capBelowEff.length, 1)}×${fmt(capBelowEff.width, 1)}×${fmt(capBelowEff.thickness, 2)}″, fillet ${fmt(capBelowEff.fillet, 2)}″.`
+            : bb.linkedToCapBelow
+              ? "Linked, but the layer below has no enabled cap to mirror yet — set your own dimensions below until it does."
+              : "Set independently from the cap below — physically this is often the same board, but you can still size them separately."}</p>
+        </div>
+        ` : ""}
+        ${!bbMirroring ? `
+        <div class="form-row">
+          <span class="section-title">Dimensions</span>
+          <div class="dims-triplet" style="grid-template-columns:1fr 1fr 1fr 1fr;">
+            ${dimField("bbL", "Length (in)") + dimField("bbW", "Width (in)") + dimField("bbT", "Thickness (in)") + dimField("bbF", "Fillet (in)")}
+          </div>
+          <p class="hint">This board's own footprint bounds where product on this layer can pack. Fillet radius insets that usable rectangle by just enough to clear the rounded corner — not the full radius.</p>
+        </div>
+        ` : ""}
+        ${isBottom ? `
+        <div class="form-row">
+          <label>Bounding surface for this bottom layer</label>
+          <div class="type-toggle">
+            <button data-bb-override="0" class="${!bb.overridesPallet ? "on" : ""}">Pallet deck</button>
+            <button data-bb-override="1" class="${bb.overridesPallet ? "on" : ""}">This baseboard</button>
+          </div>
+          <p class="hint">${bb.overridesPallet
+            ? "Product on this layer packs within the baseboard's own footprint, which can overhang the pallet deck."
+            : "Since this is the bottom-most layer: should packing here be bounded by the pallet deck (narrowed further if this board is smaller), or by this board's own footprint, letting it overhang the pallet if it's bigger?"}</p>
+        </div>
+        ` : ""}
+        ${!bbMirroring ? `
+        <div class="form-row">
+          <label>Baseboard position</label>
+          ${buildAlignGrid(bb.align, "baseboard")}
+          <p class="hint">Independent of the product's own position.</p>
+        </div>
+        ` : ""}
+        ` : ""}
+
+        <div class="form-row" style="border-top:1px dashed var(--line-strong); padding-top:10px;">
+          <label>Cap</label>
+          <div class="type-toggle">
+            <button data-board-toggle="cap" class="${cap.enabled ? "on" : ""}">${cap.enabled ? "Enabled — bounds layer above" : "Disabled"}</button>
+          </div>
+        </div>
+        ${cap.enabled ? `
+        <div class="form-row">
+          <label>Linked to this layer's baseboard</label>
+          <div class="type-toggle">
+            <button data-cap-link="1" class="${cap.linked ? "on" : ""}">Linked</button>
+            <button data-cap-link="0" class="${!cap.linked ? "on" : ""}">Independent</button>
+          </div>
+          <p class="hint">${capMirroring
+            ? `Mirroring this layer's baseboard: ${fmt(bb.length, 1)}×${fmt(bb.width, 1)}×${fmt(bb.thickness, 2)}″, fillet ${fmt(bb.fillet, 2)}″.`
+            : cap.linked
+              ? "Linked, but this layer has no enabled baseboard to mirror yet — set your own dimensions below until it does."
+              : "Set independently from the baseboard."}</p>
+        </div>
+        ${!capMirroring ? `
+        <div class="form-row">
+          <span class="section-title">Dimensions</span>
+          <div class="dims-triplet" style="grid-template-columns:1fr 1fr 1fr 1fr;">
+            ${dimField("capL", "Length (in)") + dimField("capW", "Width (in)") + dimField("capT", "Thickness (in)") + dimField("capF", "Fillet (in)")}
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Cap position</label>
+          ${buildAlignGrid(cap.align, "cap")}
+          <p class="hint">Independent of the product's own position. This footprint bounds the layer stacked on top.</p>
+        </div>
+        ` : ""}
+        ` : ""}
+    `;
+
+    el.innerHTML = `
+      <div class="panel-title"><span>Layer settings</span></div>
+      <div class="form-row" style="margin-bottom:12px;">
+        <label for="editName">Name</label>
+        <input id="editName" type="text" value="${esc(layer.name)}">
+      </div>
+      <div class="editor-tabs">
+        <button data-etab="product" class="${tab === "product" ? "on" : ""}">Product type</button>
+        <button data-etab="boards" class="${tab === "boards" ? "on" : ""}">Pallet caps</button>
+      </div>
+      <div class="form-grid">
+        ${tab === "product" ? productTabHTML : boardsTabHTML}
+      </div>
+    `;
+
+    document.getElementById("editName").oninput = e => { layer.name = e.target.value; renderLayerList(); };
+    el.querySelectorAll("[data-etab]").forEach(b => {
+      b.onclick = () => { state.editorTab = b.getAttribute("data-etab"); render(); };
+    });
+    el.querySelectorAll("[data-align-x]").forEach(b => {
+      b.onclick = () => {
+        const target = b.getAttribute("data-align-target");
+        const val = { x: b.getAttribute("data-align-x"), y: b.getAttribute("data-align-y") };
+        if (target === "baseboard") layer.baseboard.align = val;
+        else if (target === "cap") layer.cap.align = val;
+        else layer.align = val;
+        render();
+      };
+    });
+
+    if (tab === "product") {
+      el.querySelectorAll("[data-type]").forEach(b => {
+        b.onclick = () => {
+          const t = b.getAttribute("data-type");
+          if (t === layer.productType) return;
+          layer.productType = t;
+          layer.dims = t === "box" ? { length: 12, width: 10, height: 8 } : { diameter: 6, padding: 0, padX: 0, padY: 0, height: 8 };
+          layer.packing = "grid";
+          render();
+        };
+      });
+      if (isBox) {
+        numField(document.getElementById("boxL"), () => layer.dims.length, v => layer.dims.length = v, { min: 0.1, dp: 3, onLive: renderDependents, onCommit: renderDependents });
+        numField(document.getElementById("boxW"), () => layer.dims.width, v => layer.dims.width = v, { min: 0.1, dp: 3, onLive: renderDependents, onCommit: renderDependents });
+        numField(document.getElementById("boxH"), () => layer.dims.height, v => layer.dims.height = v, { min: 0.1, dp: 3, onLive: renderDependents, onCommit: renderDependents });
+      } else {
+        numField(document.getElementById("rollD"), () => layer.dims.diameter, v => layer.dims.diameter = v, { min: 0.1, dp: 3, onLive: renderDependents, onCommit: renderDependents });
+        const updatePadHint = () => {
+          const h = document.getElementById("solvePadHint");
+          if (h) h.textContent = `Solving for diameter, with radial padding held fixed at ${fmt(layer.dims.padding || 0, 2)}″.`;
+        };
+        numField(document.getElementById("rollPad"), () => layer.dims.padding || 0, v => layer.dims.padding = v, {
+          min: 0, dp: 3,
+          onLive: () => { renderDependents(); updatePadHint(); },
+          onCommit: () => { renderDependents(); updatePadHint(); }
+        });
+        numField(document.getElementById("rollH"), () => layer.dims.height, v => layer.dims.height = v, { min: 0.1, dp: 3, onLive: renderDependents, onCommit: renderDependents });
+        if (layer.packing === "grid") {
+          numField(document.getElementById("rollPadX"), () => layer.dims.padX || 0, v => layer.dims.padX = v, { min: 0, dp: 3, onLive: renderDependents, onCommit: renderDependents });
+          numField(document.getElementById("rollPadY"), () => layer.dims.padY || 0, v => layer.dims.padY = v, { min: 0, dp: 3, onLive: renderDependents, onCommit: renderDependents });
+        }
+      }
+      document.getElementById("packSel").onchange = e => { layer.packing = e.target.value; render(); };
+
+      if (isBox) {
+        el.querySelectorAll("[data-solvedim]").forEach(b => {
+          b.onclick = () => { state.solveDim = b.getAttribute("data-solvedim"); render(); };
+        });
+      }
+      document.getElementById("btnSolve").onclick = () => {
+        const qty = parseInt(document.getElementById("solveQty").value, 10);
+        const resultEl = document.getElementById("solveResult");
+        const applyBtn = document.getElementById("btnSolveApply");
+        if (!qty || qty < 1) {
+          resultEl.textContent = "Enter a target quantity of at least 1.";
+          applyBtn.disabled = true;
+          return;
+        }
+        const freeDim = isBox ? state.solveDim : "diameter";
+        const result = solveMaxSize(layer, !isBox, freeDim, qty, layerBounds(layerIndex(layer)));
+        if (!result) {
+          resultEl.textContent = `Even the smallest practical size can't reach ${qty} on this pallet.`;
+          applyBtn.disabled = true;
+          return;
+        }
+        const label = isBox ? state.solveDim : "diameter";
+        resultEl.innerHTML = `Max ${label} ≈ <b>${fmt(result.value, 3)}&Prime;</b> still gives <b>${result.count}</b> placed.`;
+        applyBtn.disabled = false;
+        applyBtn.onclick = () => {
+          if (isBox) layer.dims[state.solveDim] = result.value; else layer.dims.diameter = result.value;
+          render();
+        };
+      };
+    } else {
+      el.querySelectorAll("[data-board-toggle]").forEach(b => {
+        b.onclick = () => {
+          const key = b.getAttribute("data-board-toggle");
+          layer[key].enabled = !layer[key].enabled;
+          render();
+        };
+      });
+      el.querySelectorAll("[data-cap-link]").forEach(b => {
+        b.onclick = () => { layer.cap.linked = b.getAttribute("data-cap-link") === "1"; render(); };
+      });
+      el.querySelectorAll("[data-bb-link]").forEach(b => {
+        b.onclick = () => { layer.baseboard.linkedToCapBelow = b.getAttribute("data-bb-link") === "1"; render(); };
+      });
+      el.querySelectorAll("[data-bb-override]").forEach(b => {
+        b.onclick = () => { layer.baseboard.overridesPallet = b.getAttribute("data-bb-override") === "1"; render(); };
+      });
+      if (bb.enabled && !bbMirroring) {
+        numField(document.getElementById("bbL"), () => bb.length, v => bb.length = v, { min: 0.1, dp: 2, onLive: renderDependents, onCommit: renderDependents });
+        numField(document.getElementById("bbW"), () => bb.width, v => bb.width = v, { min: 0.1, dp: 2, onLive: renderDependents, onCommit: renderDependents });
+        numField(document.getElementById("bbT"), () => bb.thickness, v => bb.thickness = v, { min: 0.01, dp: 3, onLive: renderDependents, onCommit: renderDependents });
+        numField(document.getElementById("bbF"), () => bb.fillet, v => bb.fillet = v, { min: 0, dp: 3, onLive: renderDependents, onCommit: renderDependents });
+      }
+      if (cap.enabled && !capMirroring) {
+        numField(document.getElementById("capL"), () => cap.length, v => cap.length = v, { min: 0.1, dp: 2, onLive: renderDependents, onCommit: renderDependents });
+        numField(document.getElementById("capW"), () => cap.width, v => cap.width = v, { min: 0.1, dp: 2, onLive: renderDependents, onCommit: renderDependents });
+        numField(document.getElementById("capT"), () => cap.thickness, v => cap.thickness = v, { min: 0.01, dp: 3, onLive: renderDependents, onCommit: renderDependents });
+        numField(document.getElementById("capF"), () => cap.fillet, v => cap.fillet = v, { min: 0, dp: 3, onLive: renderDependents, onCommit: renderDependents });
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------
+  // Render: stack bar + stats
+  // ---------------------------------------------------------------
+  function renderStack() {
+    const zr = zRanges();
+    const total = zr.length ? zr[zr.length - 1].end : 0;
+    const scaleMax = Math.max(state.pallet.maxHeight, total) * 1.12 || 1;
+    const px = 220;
+
+    const bar = document.getElementById("stackBar");
+    bar.innerHTML = state.layers.map((l, i) => {
+      const z = zr[i];
+      const parts = z.parts;
+      const h = (parts.total / scaleMax) * px;
+      const overflow = z.end > state.pallet.maxHeight + 1e-6;
+      const bg = overflow ? "var(--bad-soft)" : (i % 2 === 0 ? "var(--accent-soft)" : "var(--surface-3)");
+      const bd = overflow ? "var(--bad)" : "var(--line-strong)";
+      const tip = `${esc(l.name)}: ${fmt(parts.total, 2)}&quot; total`
+        + (parts.bb ? ` (baseboard ${fmt(parts.bb, 2)}&quot; + ` : ` (`)
+        + `product ${fmt(parts.product, 2)}&quot;`
+        + (parts.cap ? ` + cap ${fmt(parts.cap, 2)}&quot;)` : `)`)
+        + ` — z ${fmt(z.start, 1)}–${fmt(z.end, 1)}`;
+      let bands = "";
+      if (parts.bb) bands += `<div style="height:${Math.max((parts.bb / parts.total) * 100, 3)}%; background:var(--ink-dim); opacity:0.35;"></div>`;
+      bands += `<div style="flex:1;"></div>`;
+      if (parts.cap) bands += `<div style="height:${Math.max((parts.cap / parts.total) * 100, 3)}%; background:var(--ink-dim); opacity:0.35;"></div>`;
+      return `<div class="stack-seg" data-select="${l.id}" style="height:${Math.max(h, 6)}px; background:${bg}; border-top-color:${bd}; flex-direction:column-reverse; display:flex; padding:0;"
+        data-tip="${tip}">${bands}</div>`;
+    }).join("");
+
+    const maxPx = (state.pallet.maxHeight / scaleMax) * px;
+    bar.innerHTML += `<div class="max-line" style="bottom:${maxPx}px;"><span>max ${fmt(state.pallet.maxHeight, 1)}"</span></div>`;
+
+    bar.querySelectorAll("[data-select]").forEach(b => {
+      b.onclick = () => { state.selectedId = b.getAttribute("data-select"); render(); };
+    });
+
+    const overflowed = total > state.pallet.maxHeight + 1e-6;
+    const footprintArea = state.pallet.length * state.pallet.width;
+    const totalItems = state.layers.reduce((s, l, i) => s + computeLayer(l, layerBounds(i)).count, 0);
+
+    document.getElementById("stackStats").innerHTML = `
+      <div class="stat-line"><span class="k">Total stack height</span>
+        <span class="v ${overflowed ? "bad" : "good"}">${fmt(total, 2)}" / ${fmt(state.pallet.maxHeight, 2)}"</span></div>
+      <div class="stat-line"><span class="k">Layers</span><span class="v">${state.layers.length}</span></div>
+      <div class="stat-line"><span class="k">Total units placed</span><span class="v">${totalItems}</span></div>
+      <div class="stat-line"><span class="k">Pallet footprint</span><span class="v">${fmt(footprintArea, 0)} in²</span></div>
+      ${overflowed ? `<p class="hint" style="color:var(--bad)">Stack exceeds the configured max height — trim a layer height or raise the max.</p>` : ""}
+    `;
+  }
+
+  // ---------------------------------------------------------------
+  // Render: view body (single / all / unique)
+  // ---------------------------------------------------------------
+  function packingLabel(l) {
+    if (l.packing === "tiling") return "auto tiling";
+    if (l.packing === "close") return "close-packed (hex)";
+    return "rectangular array";
+  }
+
+  // Footprint % is always against the layer's OWN usable bounds (shrunk by
+  // any baseboard/cap-below), not the raw pallet — otherwise a layer capped
+  // to a small board would read as mostly-empty even when it's packed tight.
+  function utilBadge(computed) {
+    const b = computed.bounds;
+    const area = b ? (b.x1 - b.x0) * (b.y1 - b.y0) : state.pallet.length * state.pallet.width;
+    const used = computed.count * computed.itemArea;
+    const pct = area > 0 ? (used / area) * 100 : 0;
+    const cls = pct >= 75 ? "good" : pct >= 50 ? "warn" : "bad";
+    return `<span class="badge ${cls}">footprint used ${fmt(pct, 1)}%</span>`;
+  }
+
+  function renderSingle() {
+    const layer = selectedLayer();
+    if (!layer) return `<div class="empty">No layer selected</div>`;
+    const idx = layerIndex(layer);
+    const computed = positionedComputed(layer, idx);
+    const isBottom = idx === 0;
+    const myBB = effectiveBaseboard(idx);
+    const bbOverride = isBottom && myBB.enabled && myBB.overridesPallet;
+    const bbRect = myBB.enabled
+      ? { ...boardRect(myBB, state.pallet, bbOverride), fillet: myBB.fillet } : null;
+    const b = computed.bounds;
+    const constrained = b && (b.x0 > 1e-6 || b.y0 > 1e-6 || b.x1 < state.pallet.length - 1e-6 || b.y1 < state.pallet.width - 1e-6);
+    const overhangs = bbRect && (bbRect.x0 < -1e-6 || bbRect.y0 < -1e-6 || bbRect.x1 > state.pallet.length + 1e-6 || bbRect.y1 > state.pallet.width + 1e-6);
+    const capBelow = idx > 0 ? effectiveCap(idx - 1) : null;
+    const myCap = effectiveCap(idx);
+    return `<div class="canvas-single">
+      ${buildSVG(layer, computed, state.pallet, { big: true, baseboard: bbRect, bounds: constrained ? b : null })}
+      <div class="badge-row">
+        <span class="badge">${computed.count} placed</span>
+        ${utilBadge(computed)}
+        <span class="badge">${packingLabel(layer)}</span>
+        ${myBB.enabled ? `<span class="badge">baseboard ${fmt(myBB.length, 1)}×${fmt(myBB.width, 1)}″${myBB.linkedToCapBelow ? " (linked)" : ""}</span>` : ""}
+        ${myCap.enabled ? `<span class="badge">cap ${fmt(myCap.length, 1)}×${fmt(myCap.width, 1)}″${myCap.linked && myBB.enabled ? " (linked)" : ""}</span>` : ""}
+        ${capBelow && capBelow.enabled ? `<span class="badge warn">bounded by cap below</span>` : ""}
+        ${overhangs ? `<span class="badge warn">baseboard overhangs pallet deck</span>` : ""}
+      </div>
+    </div>`;
+  }
+
+  function renderAll() {
+    if (!state.layers.length) return `<div class="empty">No layers yet</div>`;
+    return `<div class="small-grid">${state.layers.map((l, i) => {
+      const computed = positionedComputed(l, i);
+      return `<div class="small-card" data-select="${l.id}">
+        ${buildSVG(l, computed, state.pallet, { big: false })}
+        <div class="nm">${esc(l.name)}</div>
+        <div class="info">${computed.count} placed · ${l.productType}</div>
+        <span class="tag">${packingLabel(l)}</span>
+      </div>`;
+    }).join("")}</div>`;
+  }
+
+  function renderUnique() {
+    if (!state.layers.length) return `<div class="empty">No layers yet</div>`;
+    const groups = [];
+    const bySig = {};
+    state.layers.forEach(l => {
+      const sig = layerSig(l);
+      if (!bySig[sig]) { bySig[sig] = { rep: l, members: [] }; groups.push(bySig[sig]); }
+      bySig[sig].members.push(l);
+    });
+    return `<div class="small-grid">${groups.map(g => {
+      const computed = positionedComputed(g.rep, layerIndex(g.rep));
+      const names = g.members.map(m => m.name).join(", ");
+      return `<div class="small-card" data-select="${g.rep.id}">
+        ${buildSVG(g.rep, computed, state.pallet, { big: false })}
+        <div class="nm">${esc(g.rep.name)}</div>
+        <div class="info">${computed.count} placed · used ×${g.members.length}</div>
+        <span class="tag" title="${esc(names)}">${g.members.length > 1 ? esc(names) : packingLabel(g.rep)}</span>
+      </div>`;
+    }).join("")}</div>`;
+  }
+
+  function renderViewBody() {
+    const el = document.getElementById("viewBody");
+    if (state.view === "single") el.innerHTML = renderSingle();
+    else if (state.view === "all") el.innerHTML = renderAll();
+    else el.innerHTML = renderUnique();
+
+    el.querySelectorAll("[data-select]").forEach(b => {
+      b.onclick = () => { state.selectedId = b.getAttribute("data-select"); state.view = "single"; render(); };
+    });
+
+    document.querySelectorAll("#viewTabs button").forEach(b => {
+      b.classList.toggle("on", b.getAttribute("data-view") === state.view);
+    });
+  }
+
+  // ---------------------------------------------------------------
+  // Render: magic numbers (parameter sweep)
+  // ---------------------------------------------------------------
+  function buildStepChart(segs, currentV) {
+    const w = 560, h = 150, mL = 34, mB = 20, mT = 8, mR = 8;
+    const minV = segs[0].start, maxV = segs[segs.length - 1].end;
+    const maxC = Math.max(...segs.map(s => s.count), 1);
+    const iw = w - mL - mR, ih = h - mT - mB;
+    const x = v => mL + ((v - minV) / (maxV - minV || 1)) * iw;
+    const y = c => mT + ih - (c / maxC) * ih;
+
+    let path = "";
+    segs.forEach((s, i) => {
+      const x1 = x(s.start), x2 = x(s.end), yy = y(s.count);
+      path += (i === 0 ? `M ${x1} ${yy}` : ` L ${x1} ${yy}`) + ` L ${x2} ${yy}`;
+      if (i < segs.length - 1) path += ` L ${x2} ${y(segs[i + 1].count)}`;
+    });
+
+    const curX = x(Math.min(Math.max(currentV, minV), maxV));
+    return `<svg viewBox="0 0 ${w} ${h}">
+      <line x1="${mL}" y1="${mT + ih}" x2="${mL + iw}" y2="${mT + ih}" stroke="var(--line-strong)" stroke-width="1"/>
+      <line x1="${mL}" y1="${mT}" x2="${mL}" y2="${mT + ih}" stroke="var(--line-strong)" stroke-width="1"/>
+      <text x="${mL}" y="${mT + ih + 14}" font-family="var(--font-mono)" font-size="10" fill="var(--ink-dim)">${fmt(minV, 2)}</text>
+      <text x="${mL + iw}" y="${mT + ih + 14}" text-anchor="end" font-family="var(--font-mono)" font-size="10" fill="var(--ink-dim)">${fmt(maxV, 2)}</text>
+      <text x="${mL - 6}" y="${mT + 4}" text-anchor="end" font-family="var(--font-mono)" font-size="10" fill="var(--ink-dim)">${maxC}</text>
+      <text x="${mL - 6}" y="${mT + ih}" text-anchor="end" font-family="var(--font-mono)" font-size="10" fill="var(--ink-dim)">0</text>
+      <path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke"/>
+      <line x1="${curX}" y1="${mT}" x2="${curX}" y2="${mT + ih}" stroke="var(--ink)" stroke-width="1" stroke-dasharray="3,3"/>
+    </svg>`;
+  }
+
+  function renderMagic() {
+    const el = document.getElementById("magicPanel");
+    const layer = selectedLayer();
+    if (!layer || state.view !== "single") { el.innerHTML = ""; return; }
+
+    const idx = layerIndex(layer);
+    const bounds = layerBounds(idx);
+    const isRoll = layer.productType === "roll";
+    const sweepDim = isRoll ? "diameter" : state.sweepDim;
+    const center = isRoll ? layer.dims.diameter : layer.dims[state.sweepDim];
+    const loBoundAbs = 0.1;
+    const boundsL = bounds.x1 - bounds.x0, boundsW = bounds.y1 - bounds.y0;
+    const hiBoundAbs = isRoll ? Math.min(boundsL, boundsW)
+                               : (state.sweepDim === "length" ? boundsL : boundsW);
+
+    let dMin, dMax, note = "";
+    if (state.magicMode === "auto") {
+      const w = computeAutoWindow(layer, isRoll, sweepDim, center, loBoundAbs, hiBoundAbs, bounds);
+      dMin = w.dMin; dMax = w.dMax;
+      if (!w.foundUp && !w.foundDown) note = " No threshold found nearby — the count is stable across a wide range here; try a manual range to look further out.";
+    } else {
+      dMin = Math.max(loBoundAbs, center - state.magicMode);
+      dMax = Math.min(hiBoundAbs, center + state.magicMode);
+    }
+    if (dMax - dMin < 0.02) dMax = dMin + 0.02;
+
+    const { segs } = sweepAndRefine(layer, isRoll, sweepDim, dMin, dMax, 80, bounds);
+    const chart = buildStepChart(segs, center);
+
+    const curComputed = computeLayer(layer, bounds);
+    const curArea = boundsL * boundsW;
+    const curUtil = curArea > 0 ? (curComputed.count * curComputed.itemArea / curArea) * 100 : 0;
+
+    const rows = segs.map(s => {
+      const width = s.end - s.start;
+      const isCliff = width < 0.1;
+      const isCurrent = center >= s.start - 1e-6 && center <= s.end + 1e-6;
+      const util = curArea > 0 ? (s.count * itemAreaAt(layer, isRoll, sweepDim, s.end) / curArea) * 100 : 0;
+      return `<tr class="${isCliff ? "cliff" : ""} ${isCurrent ? "current" : ""}">
+        <td>${fmt(s.start, 3)}&Prime;–${fmt(s.end, 3)}&Prime;${isCliff ? " ⚡" : ""}</td>
+        <td>${s.count}</td>
+        <td>${fmt(util, 1)}%</td>
+      </tr>`;
+    }).join("");
+
+    el.innerHTML = `
+      <div class="panel-title">
+        <span>Magic numbers — ${isRoll ? "roll diameter" : "box " + state.sweepDim}</span>
+        ${!isRoll ? `<div class="radio-row">
+          <button data-sd="length" class="${state.sweepDim === "length" ? "on" : ""}">Sweep length</button>
+          <button data-sd="width" class="${state.sweepDim === "width" ? "on" : ""}">Sweep width</button>
+        </div>` : ""}
+      </div>
+      <div class="badge-row" style="justify-content:flex-start; margin-bottom:10px;">
+        <span class="badge">packing: ${packingLabel(layer)}</span>
+        <span class="badge">current: ${curComputed.count} placed</span>
+        <span class="badge ${curUtil >= 75 ? "good" : curUtil >= 50 ? "warn" : "bad"}">footprint used ${fmt(curUtil, 1)}%</span>
+      </div>
+      <p class="hint" style="margin-bottom:10px;">
+        How placed count — and the footprint it uses — changes as ${isRoll ? "roll diameter" : "box " + state.sweepDim}
+        moves around the current value (${fmt(center, 3)}&Prime;).${note}
+      </p>
+      <div class="magic-controls">
+        <div class="radio-row">
+          <button data-mode="auto" class="${state.magicMode === "auto" ? "on" : ""}">Auto (to first jump)</button>
+        </div>
+        <div class="field" style="gap:2px;">
+          <label style="font-size:0.62rem;">or manual range, ± in</label>
+          <input id="magicSpan" class="inline-num" type="text" inputmode="decimal" placeholder="e.g. 1.5">
+        </div>
+      </div>
+      <div class="chart-wrap">${chart}</div>
+      <div class="table-scroll">
+        <table class="brk">
+          <thead><tr><th>Range</th><th>Count</th><th>Footprint used</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    `;
+
+    if (!isRoll) {
+      el.querySelectorAll("[data-sd]").forEach(b => {
+        b.onclick = () => { state.sweepDim = b.getAttribute("data-sd"); render(); };
+      });
+    }
+    el.querySelector('[data-mode="auto"]').onclick = () => { state.magicMode = "auto"; render(); };
+    const spanEl = document.getElementById("magicSpan");
+    if (typeof state.magicMode === "number") spanEl.value = fmt(state.magicMode, 2);
+    spanEl.addEventListener("change", () => {
+      const n = parseFloat(spanEl.value);
+      if (!isNaN(n) && n > 0.02) { state.magicMode = n; render(); }
+    });
+  }
+
+  // ---------------------------------------------------------------
+  // Top-level buttons
+  // ---------------------------------------------------------------
+  function bindGlobalButtons() {
+    document.getElementById("btnAddLayer").onclick = () => {
+      const tmpl = selectedLayer();
+      const nl = tmpl
+        ? JSON.parse(JSON.stringify(tmpl))
+        : { productType: "box", dims: { length: 12, width: 10, height: 8 }, packing: "grid" };
+      nl.id = newId();
+      nl.name = "New layer";
+      state.layers.push(nl);
+      state.selectedId = nl.id;
+      render();
+    };
+    document.getElementById("btnDupLayer").onclick = () => {
+      const cur = selectedLayer();
+      if (!cur) return;
+      const nl = JSON.parse(JSON.stringify(cur));
+      nl.id = newId();
+      nl.name = cur.name + " copy";
+      const idx = state.layers.findIndex(l => l.id === cur.id);
+      state.layers.splice(idx + 1, 0, nl);
+      state.selectedId = nl.id;
+      render();
+    };
+    document.getElementById("btnDelLayer").onclick = () => {
+      if (state.layers.length <= 1) return;
+      const idx = state.layers.findIndex(l => l.id === state.selectedId);
+      state.layers.splice(idx, 1);
+      state.selectedId = state.layers[Math.max(0, idx - 1)].id;
+      render();
+    };
+    document.getElementById("btnMoveUp").onclick = () => {
+      const idx = state.layers.findIndex(l => l.id === state.selectedId);
+      if (idx >= 0 && idx < state.layers.length - 1) { [state.layers[idx + 1], state.layers[idx]] = [state.layers[idx], state.layers[idx + 1]]; render(); }
+    };
+    document.getElementById("btnMoveDown").onclick = () => {
+      const idx = state.layers.findIndex(l => l.id === state.selectedId);
+      if (idx > 0) { [state.layers[idx - 1], state.layers[idx]] = [state.layers[idx], state.layers[idx - 1]]; render(); }
+    };
+    document.querySelectorAll("#viewTabs button").forEach(b => {
+      b.onclick = () => { state.view = b.getAttribute("data-view"); render(); };
+    });
+  }
+
+  // ---------------------------------------------------------------
+  // Render pipeline
+  //   render()            — full rebuild, including the editor's own
+  //                          input DOM nodes. Only called from discrete
+  //                          clicks/selects, never while someone is typing
+  //                          into a field that would itself get rebuilt.
+  //   renderDependents()  — everything EXCEPT the editor panel. Used by
+  //                          the editor's own numeric fields so typing a
+  //                          box/roll dimension never destroys the input
+  //                          the person is mid-keystroke in.
+  // ---------------------------------------------------------------
+  function renderDependents() {
+    state.layers.forEach(ensureBoards);
+    renderLayerList();
+    renderStack();
+    renderViewBody();
+    renderMagic();
+  }
+  function render() {
+    state.layers.forEach(ensureBoards);
+    renderLayerList();
+    renderEditor();
+    renderStack();
+    renderViewBody();
+    renderMagic();
+  }
+
+  bindPalletInputs();
+  bindGlobalButtons();
+  render();
+})();
+</script>
