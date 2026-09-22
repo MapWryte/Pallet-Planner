@@ -473,6 +473,99 @@
     return opts[0];
   }
 
+  // Pinwheel — a true windmill of four rectangular arms around a shared
+  // center, sized to use multi-box strips (not a single box per arm) and
+  // CENTERED in the pallet. Two arms diagonally opposite each other (arm 1 /
+  // arm 3) are exact 180° mirrors of each other; the other diagonal pair
+  // (arm 2 / arm 4, rotated 90° from arm 1/3) mirror each other too — but
+  // arm 1 and arm 2 do NOT need to match each other in size, only their own
+  // diagonal partner. That's what makes this a genuine windmill rather than
+  // a forced four-way-equal split (an earlier version of this function did
+  // exactly that, and it cost real density for no reason — the actual
+  // geometric requirement is only diagonal-pair symmetry).
+  //
+  // Arm 1 (bottom-left of the windmill): an m×n grid of boxes, pDim along x,
+  // qDim along y, so P = m·pDim, Q = n·qDim, and the whole windmill is an
+  // s×s square with s = P+Q — same "four rectangles + a (P−Q) center gap"
+  // identity as a single-box pinwheel, just with P/Q built from m/n boxes
+  // instead of one box each. m,n are searched to maximize 4·m·n subject to
+  // s ≤ min(L,W) (the windmill has to fit the pallet's shorter side).
+  // Arm 3 is arm 1 rotated 180° about the windmill's own center. Arm 2 is an
+  // n×m grid (qDim along x, pDim along y — the same boxes, rotated 90° from
+  // arm 1); arm 4 is arm 2 rotated 180°. The small (P−Q)×(P−Q) center gap
+  // (zero when P=Q) is left open rather than filled — filling one
+  // self-contained region symmetrically needs its own symmetric sub-pack,
+  // not worth the complexity for what's usually a small area, and an open
+  // center is true to the classic pattern's own look.
+  //
+  // The windmill is centered in the pallet (not corner-anchored), so any
+  // leftover margin beyond its s×s footprint splits into two strips. Each
+  // pair is packed ONCE and the other half is placed by an EXACT 180°
+  // rotation of those same rects about the pallet center — not a second
+  // independent packBoxGrid call, which could leave ITS OWN leftover slack
+  // in a different spot and silently break the symmetry (this was a real
+  // bug caught in testing before this shipped).
+  //
+  // True 90° (quarter-turn) symmetry of the WHOLE footprint is only possible
+  // when the pallet itself is square (L=W) — a non-square rectangle can't
+  // map onto itself under a 90° turn no matter how the boxes inside are
+  // arranged. 180° symmetry, which this guarantees unconditionally, is the
+  // honest ceiling for a rectangular pallet; individual boxes still rotate
+  // in 90° steps between arms, which is what reads visually as "spin."
+  function windmillConfig(L, W, pDim, qDim) {
+    const capS = Math.min(L, W);
+    let best = null;
+    for (let m = 1; m * pDim <= capS + EPS; m++) {
+      for (let n = 1; m * pDim + n * qDim <= capS + EPS; n++) {
+        const score = 4 * m * n;
+        if (!best || score > best.score) best = { m, n, score };
+      }
+    }
+    if (!best) return null; // box too big for any windmill to fit this pallet
+    const { m, n } = best;
+    const P = m * pDim, Q = n * qDim, s = P + Q;
+    const offX = (L - s) / 2, offY = (W - s) / 2; // center the windmill in the pallet
+    const rects = [];
+    for (let r = 0; r < n; r++) for (let c = 0; c < m; c++) // arm 1
+      rects.push({ x: offX + c * pDim, y: offY + r * qDim, w: pDim, h: qDim });
+    for (let r = 0; r < n; r++) for (let c = 0; c < m; c++) // arm 3 = 180° mirror of arm 1
+      rects.push({ x: offX + s - (c + 1) * pDim, y: offY + s - (r + 1) * qDim, w: pDim, h: qDim });
+    for (let r = 0; r < m; r++) for (let c = 0; c < n; c++) // arm 2, rotated
+      rects.push({ x: offX + P + c * qDim, y: offY + r * pDim, w: qDim, h: pDim });
+    for (let r = 0; r < m; r++) for (let c = 0; c < n; c++) // arm 4 = 180° mirror of arm 2
+      rects.push({ x: offX + Q - (c + 1) * qDim, y: offY + s - (r + 1) * pDim, w: qDim, h: pDim });
+    // Left/right strips span only the windmill's own height band [offY,
+    // offY+s]; top/bottom strips span the FULL pallet length (including the
+    // corners). offY == stripH exactly, so the two strip families sit in
+    // adjacent, non-overlapping bands instead of both claiming the corners
+    // (that double-coverage was a real overlap bug caught in testing).
+    if (L - s > EPS) {
+      const stripW = (L - s) / 2;
+      packBoxGrid(stripW, s, pDim, qDim).rects.forEach(r => {
+        rects.push({ x: r.x, y: offY + r.y, w: r.w, h: r.h });
+        rects.push({ x: L - r.x - r.w, y: offY + s - r.y - r.h, w: r.w, h: r.h }); // exact 180° mirror, not a second pack
+      });
+    }
+    if (W - s > EPS) {
+      const stripH = (W - s) / 2;
+      packBoxGrid(L, stripH, pDim, qDim).rects.forEach(r => {
+        rects.push({ x: r.x, y: r.y, w: r.w, h: r.h });
+        rects.push({ x: L - r.x - r.w, y: W - r.y - r.h, w: r.w, h: r.h });
+      });
+    }
+    return { count: rects.length, rects };
+  }
+  // Tried both ways round (which box dimension is pDim vs qDim) and kept
+  // whichever packs more — same "try options, keep the best" approach used
+  // by packBoxAuto/packBoxGrid elsewhere in this file.
+  function packBoxPinwheel(L, W, bl, bw) {
+    const optA = windmillConfig(L, W, bl, bw);
+    const optB = windmillConfig(L, W, bw, bl);
+    if (!optA) return optB || { count: 0, rects: [] };
+    if (!optB) return optA;
+    return optA.count >= optB.count ? optA : optB;
+  }
+
   // pitchX/pitchY default to d (a tight, ungapped grid). Passing a larger
   // pitch is how linear (interior-only) padding between rolls is modeled:
   // the first roll's center still sits at d/2 from the boundary — only the
@@ -559,7 +652,9 @@
       const packRect = boxCornerInset(bounds, R);
       const L = Math.max(0, packRect.x1 - packRect.x0), W = Math.max(0, packRect.y1 - packRect.y0);
       const { length: bl, width: bw } = layer.dims;
-      const res = layer.packing === "tiling" ? packBoxAuto(L, W, bl, bw) : packBoxGrid(L, W, bl, bw);
+      const res = layer.packing === "tiling" ? packBoxAuto(L, W, bl, bw)
+                : layer.packing === "pinwheel" ? packBoxPinwheel(L, W, bl, bw)
+                : packBoxGrid(L, W, bl, bw);
       // Re-anchor from packRect's local origin back to bounds' — downstream
       // code (alignOffset, positionedComputed) treats coordinates as
       // relative to the raw `bounds` origin, same as the roll branch below.
@@ -1330,12 +1425,14 @@
           <select id="packSel">
             ${isBox
               ? `<option value="grid" ${layer.packing === "grid" ? "selected" : ""}>Rectangular array</option>
-                 <option value="tiling" ${layer.packing === "tiling" ? "selected" : ""}>Auto tiling (best-fit)</option>`
+                 <option value="tiling" ${layer.packing === "tiling" ? "selected" : ""}>Auto tiling (best-fit)</option>
+                 <option value="pinwheel" ${layer.packing === "pinwheel" ? "selected" : ""}>Pinwheel (interlocked)</option>`
               : `<option value="grid" ${layer.packing === "grid" ? "selected" : ""}>Rectangular array</option>
                  <option value="close" ${layer.packing === "close" ? "selected" : ""}>Close-packed (hex)</option>`}
           </select>
         </div>
         ${isBox && layer.packing === "tiling" ? `<p class="hint">Heuristic search over orientations and leftover-strip fills — not a guaranteed optimum.</p>` : ""}
+        ${isBox && layer.packing === "pinwheel" ? `<p class="hint">A centered windmill of four multi-box arms, diagonal pairs mirrored, with true 180° rotational symmetry and a small open gap at the center. Chosen for load stability/interlock, not density — usually packs fewer boxes than auto tiling.</p>` : ""}
         ${!isBox ? (layer.packing === "grid" ? `
         <div class="form-row">
           <span class="section-title">Linear padding</span>
@@ -1637,6 +1734,7 @@
   // ---------------------------------------------------------------
   function packingLabel(l) {
     if (l.packing === "tiling") return "auto tiling";
+    if (l.packing === "pinwheel") return "pinwheel";
     if (l.packing === "close") return "close-packed (hex)";
     return "rectangular array";
   }

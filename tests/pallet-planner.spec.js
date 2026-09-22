@@ -105,3 +105,50 @@ test.describe('Pallet Planner — layer views', () => {
     await expect(page.locator('.view-tabs button[data-view="single"]')).toHaveClass(/on/);
   });
 });
+
+test.describe('Pallet Planner — pinwheel packing', () => {
+  // L2 ("Case layer — B") is seeded as a 16×12 box on the default 48×40
+  // pallet. Rows are reversed for display (see the "load and defaults"
+  // describe block above), so it's rows.nth(0).
+  test('box layer offers a Pinwheel packing option and switching to it updates the badges', async ({ page }) => {
+    await gotoApp(page);
+    await page.locator('#layerList .layer-row').nth(0).click();
+
+    const packSel = page.locator('#packSel');
+    await expect(packSel.locator('option[value="pinwheel"]')).toHaveCount(1);
+
+    await packSel.selectOption('pinwheel');
+
+    const badgeRow = page.locator('.badge-row');
+    await expect(badgeRow.getByText('pinwheel', { exact: true })).toBeVisible();
+    // 16×12 box on a 48×40 pallet resolves to an 8-box windmill (two
+    // diagonal-mirrored arm pairs) — verified separately against the
+    // packing math itself, not just "some positive count".
+    await expect(badgeRow.getByText('8 placed', { exact: true })).toBeVisible();
+  });
+
+  test('Pinwheel hint text only shows while pinwheel is selected', async ({ page }) => {
+    await gotoApp(page);
+    await page.locator('#layerList .layer-row').nth(0).click();
+
+    const hint = page.locator('.hint', { hasText: 'diagonal pairs mirrored' });
+    await expect(hint).toHaveCount(0); // starts on "tiling" per the seed data
+
+    await page.locator('#packSel').selectOption('pinwheel');
+    await expect(hint).toBeVisible();
+
+    await page.locator('#packSel').selectOption('grid');
+    await expect(hint).toHaveCount(0);
+  });
+
+  test('roll layers do not offer a Pinwheel option', async ({ page }) => {
+    await gotoApp(page);
+    // L1 ("Roll layer — A") is the seeded roll layer, rows.nth(1) per the
+    // reversed display order.
+    await page.locator('#layerList .layer-row').nth(1).click();
+
+    const packSel = page.locator('#packSel');
+    await expect(packSel.locator('option[value="pinwheel"]')).toHaveCount(0);
+    await expect(packSel.locator('option')).toHaveCount(2); // grid, close
+  });
+});
